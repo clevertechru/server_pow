@@ -1,5 +1,6 @@
 [![Go](https://github.com/clevertechru/server_pow/actions/workflows/go.yml/badge.svg)](https://github.com/clevertechru/server_pow/actions/workflows/go.yml)
 [![Build Status](https://app.travis-ci.com/clevertechru/server_pow.svg?token=bbzT95wZRUs7cXAPJccG&branch=main)](https://app.travis-ci.com/clevertechru/server_pow)
+[![Build status](https://badge.buildkite.com/1fad7fb9610283e4955ea4ec4c88faca52162b637fea61821e.svg)](https://buildkite.com/clevertechru-1/server-pow)
 # TCP server protected from DDOS attacks with the Proof of Work
 ## PoW Algorithm Choice:
 * Using SHA256 with a nonce-based challenge
