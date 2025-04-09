@@ -1,0 +1,34 @@
+language: go
+
+go:
+  - "1.21"
+
+branches:
+  only:
+    - main
+
+jobs:
+  include:
+    - stage: CI
+      name: "Package & build"
+      script:
+        - echo "Server pow"
+        - go build -o server ./cmd/server
+        - go build -o client ./cmd/client
+    - name: "Run vet"
+      script:
+        - go vet .
+    - name: "Run Linting"
+      install:
+        - go get -u golang.org/x/lint/golint
+      script:
+        - golint .
+    - name: "Unit Tests"
+      script:
+        - go test -v ./...
+
+    - stage: Deploy
+      if: branch = master
+      name: "Dummy deploy stage"
+      script:
+        - echo "Deploy"

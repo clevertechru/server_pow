@@ -1,3 +1,4 @@
+[![Build Status](https://app.travis-ci.com/clevertechru/server_pow.svg?token=bbzT95wZRUs7cXAPJccG&branch=main)](https://app.travis-ci.com/clevertechru/server_pow)
 # TCP server protected from DDOS attacks with the Proof of Work
 ## PoW Algorithm Choice:
 * Using SHA256 with a nonce-based challenge
