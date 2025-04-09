@@ -41,9 +41,8 @@ func (h *Handler) MakeRequest() error {
 	}
 	defer conn.Close()
 
-	// Set read/write timeouts
-	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-	conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(h.config.ReadTimeout))
+	conn.SetWriteDeadline(time.Now().Add(h.config.WriteTimeout))
 
 	reader := bufio.NewReader(conn)
 	challenge, err := reader.ReadString('\n')
@@ -61,7 +60,7 @@ func (h *Handler) MakeRequest() error {
 	}
 
 	// Reset write deadline before sending nonce
-	conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	conn.SetWriteDeadline(time.Now().Add(h.config.WriteTimeout))
 	_, err = conn.Write([]byte(fmt.Sprintf("%d\n", nonce)))
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -71,7 +70,7 @@ func (h *Handler) MakeRequest() error {
 	}
 
 	// Reset read deadline before reading quote
-	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(h.config.ReadTimeout))
 	quote, err := reader.ReadString('\n')
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {

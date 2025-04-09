@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/clevertechru/server_pow/pkg/config"
-
 	"github.com/clevertechru/server_pow/pkg/pow"
 	"github.com/clevertechru/server_pow/pkg/quotes"
 )
@@ -24,9 +23,8 @@ func NewHandler(config *config.ServerConfig) *Handler {
 func (h *Handler) HandleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	// Set read/write timeouts
-	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-	conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(h.config.ReadTimeout))
+	conn.SetWriteDeadline(time.Now().Add(h.config.WriteTimeout))
 
 	challenge := pow.GenerateChallenge(h.config.ChallengeDifficulty)
 	challengeStr := fmt.Sprintf("%s|%s|%d", challenge.Data, challenge.Target, challenge.Timestamp)
@@ -37,7 +35,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 	var nonce string
 	for {
 		// Reset read deadline for each read attempt
-		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		conn.SetReadDeadline(time.Now().Add(h.config.ReadTimeout))
 		n, err := conn.Read(buffer)
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
