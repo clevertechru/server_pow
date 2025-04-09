@@ -2,12 +2,12 @@ package main
 
 import (
 	"bufio"
+	"client/config"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -35,17 +35,8 @@ func solvePoW(challengeStr string) int64 {
 	}
 }
 
-func makeRequest() error {
-	host := os.Getenv("SERVER_HOST")
-	if host == "" {
-		host = "server"
-	}
-	port := os.Getenv("SERVER_PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	addr := net.JoinHostPort(host, port)
+func makeRequest(cfg *config.ClientConfig) error {
+	addr := net.JoinHostPort(cfg.ServerHost, cfg.ServerPort)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %v", err)
@@ -68,24 +59,12 @@ func makeRequest() error {
 	return nil
 }
 
-func getRequestsDelay() time.Duration {
-	envRequestsDelay := os.Getenv("REQUESTS_DELAY_MS")
-	if envRequestsDelay != "" {
-		delay, err := strconv.Atoi(envRequestsDelay)
-		if err != nil {
-			panic("Cannot parse integer from REQUESTS_DELAY_MS")
-		}
-		return time.Duration(delay) * time.Millisecond
-	}
-	return 100 * time.Millisecond // default delay
-}
-
 func main() {
-	delay := getRequestsDelay()
+	cfg := config.New()
 	for {
-		if err := makeRequest(); err != nil {
+		if err := makeRequest(cfg); err != nil {
 			log.Printf("Error: %v", err)
 		}
-		time.Sleep(delay)
+		time.Sleep(cfg.RequestsDelayMs)
 	}
 }

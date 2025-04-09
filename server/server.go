@@ -7,7 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
-	"os"
+	"server/config"
 	"strings"
 	"time"
 )
@@ -50,14 +50,10 @@ func verifyPoW(challenge Challenge, nonce int64) bool {
 	return strings.HasPrefix(hexHash, challenge.Target)
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, cfg *config.ServerConfig) {
 	defer conn.Close()
 
-	difficulty := os.Getenv("CHALLENGE_DIFFICULTY")
-	if difficulty == "" {
-		difficulty = "0000" // Adjust difficulty by changing number of zeros
-	}
-	challenge := generateChallenge(difficulty)
+	challenge := generateChallenge(cfg.ChallengeDifficulty)
 	challengeStr := fmt.Sprintf("%s|%s|%d", challenge.Data, challenge.Target, challenge.Timestamp)
 	conn.Write([]byte(challengeStr + "\n"))
 
@@ -83,16 +79,8 @@ func handleConnection(conn net.Conn) {
 }
 
 func main() {
-	host := os.Getenv("HOST")
-	if host == "" {
-		host = "0.0.0.0"
-	}
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	addr := net.JoinHostPort(host, port)
+	cfg := config.New()
+	addr := net.JoinHostPort(cfg.Host, cfg.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
@@ -107,6 +95,6 @@ func main() {
 			log.Printf("Failed to accept connection: %v", err)
 			continue
 		}
-		go handleConnection(conn)
+		go handleConnection(conn, cfg)
 	}
 }

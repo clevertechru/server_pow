@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY server.go .
 COPY go.mod .
+COPY config ./config
 
 RUN go build -o server .
 
