@@ -1,3 +1,4 @@
+[![Build status](https://badge.buildkite.com/1fad7fb9610283e4955ea4ec4c88faca52162b637fea61821e.svg)](https://buildkite.com/clevertechru-1/server-pow)
 # TCP server protected from DDOS attacks with the Proof of Work
 ## PoW Algorithm Choice:
 * Using SHA256 with a nonce-based challenge
