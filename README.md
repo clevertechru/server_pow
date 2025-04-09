@@ -12,6 +12,11 @@ cd server_pow
 docker compose up --build
 ```
 
+# How to Run tests
+```
+go test ./...
+```
+
 # Server environment settings
 ```
 # Adjust difficulty by changing number of zeros
