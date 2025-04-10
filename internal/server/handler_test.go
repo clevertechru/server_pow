@@ -59,6 +59,8 @@ func (m *mockConn) SetWriteDeadline(t time.Time) error {
 func TestHandleConnection(t *testing.T) {
 	cfg := &config.ServerConfig{
 		ChallengeDifficulty: "0000",
+		RateLimit:           1000,
+		BurstLimit:          1000,
 	}
 	handler := NewHandler(cfg)
 
