@@ -8,6 +8,8 @@ type ServerConfig struct {
 	ChallengeDifficulty string
 	ReadTimeout         time.Duration
 	WriteTimeout        time.Duration
+	RateLimit           int
+	BurstLimit          int
 }
 
 func ServerConfigNew() *ServerConfig {
@@ -17,5 +19,7 @@ func ServerConfigNew() *ServerConfig {
 		ChallengeDifficulty: getEnvOrDefault("CHALLENGE_DIFFICULTY", "0000"),
 		ReadTimeout:         getDurationEnvOrDefault("READ_TIMEOUT_MS", 30_000*time.Millisecond),
 		WriteTimeout:        getDurationEnvOrDefault("WRITE_TIMEOUT_MS", 30_000*time.Millisecond),
+		RateLimit:           getIntEnvOrDefault("RATE_LIMIT_RPS", 10), // requests per second
+		BurstLimit:          getIntEnvOrDefault("BURST_CAPACITY", 20), // burst capacity
 	}
 }

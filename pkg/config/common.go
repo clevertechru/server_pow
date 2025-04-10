@@ -13,6 +13,15 @@ func getEnvOrDefault(key, defaultValue string) string {
 	return defaultValue
 }
 
+func getIntEnvOrDefault(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if number, err := strconv.Atoi(value); err == nil {
+			return number
+		}
+	}
+	return defaultValue
+}
+
 func getDurationEnvOrDefault(key string, defaultValue time.Duration) time.Duration {
 	if value := os.Getenv(key); value != "" {
 		if delay, err := strconv.Atoi(value); err == nil {
