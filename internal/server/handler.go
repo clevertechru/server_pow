@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/clevertechru/server_pow/pkg/config"
@@ -14,10 +15,18 @@ import (
 
 type Handler struct {
 	config *config.ServerConfig
+	pool   *sync.Pool
 }
 
 func NewHandler(config *config.ServerConfig) *Handler {
-	return &Handler{config: config}
+	return &Handler{
+		config: config,
+		pool: &sync.Pool{
+			New: func() interface{} {
+				return make([]byte, 1024)
+			},
+		},
+	}
 }
 
 func (h *Handler) HandleConnection(conn net.Conn) {
@@ -31,7 +40,9 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 	log.Printf("Sending challenge: %s", challengeStr)
 	conn.Write([]byte(challengeStr + "\n"))
 
-	buffer := make([]byte, 1024)
+	buffer := h.pool.Get().([]byte)
+	defer h.pool.Put(buffer)
+
 	var nonce string
 	for {
 		// Reset read deadline for each read attempt
