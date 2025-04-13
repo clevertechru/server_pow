@@ -10,16 +10,18 @@ import (
 
 	"github.com/clevertechru/server_pow/pkg/config"
 	"github.com/clevertechru/server_pow/pkg/connlimit"
+	"github.com/clevertechru/server_pow/pkg/nonce"
 	"github.com/clevertechru/server_pow/pkg/pow"
 	"github.com/clevertechru/server_pow/pkg/quotes"
 	"github.com/clevertechru/server_pow/pkg/ratelimit"
 )
 
 type Handler struct {
-	config      *config.ServerConfig
-	pool        *sync.Pool
-	rateLimiter *ratelimit.Limiter
-	connLimiter *connlimit.Limiter
+	config       *config.ServerConfig
+	pool         *sync.Pool
+	rateLimiter  *ratelimit.Limiter
+	connLimiter  *connlimit.Limiter
+	nonceTracker *nonce.Tracker
 }
 
 func NewHandler(config *config.ServerConfig) *Handler {
@@ -30,8 +32,9 @@ func NewHandler(config *config.ServerConfig) *Handler {
 				return make([]byte, 1024)
 			},
 		},
-		rateLimiter: ratelimit.NewLimiter(float64(config.RateLimit), int64(config.BurstLimit)),
-		connLimiter: connlimit.NewLimiter(config.MaxConnections),
+		rateLimiter:  ratelimit.NewLimiter(float64(config.RateLimit), int64(config.BurstLimit)),
+		connLimiter:  connlimit.NewLimiter(config.MaxConnections),
+		nonceTracker: nonce.NewTracker(5 * time.Minute), // 5 minute window for nonces
 	}
 }
 
@@ -101,6 +104,13 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 	if !pow.VerifyPoW(verifyChallenge, nonceInt) {
 		log.Printf("Invalid proof of work")
 		conn.Write([]byte("Invalid proof of work\n"))
+		return
+	}
+
+	// Check for replay attack
+	if !h.nonceTracker.IsValid(uint64(nonceInt), challenge.Timestamp) {
+		log.Printf("Replay attack detected for nonce %d", nonceInt)
+		conn.Write([]byte("Replay attack detected\n"))
 		return
 	}
 
