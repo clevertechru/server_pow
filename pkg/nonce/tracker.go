@@ -18,7 +18,7 @@ func NewTracker(window time.Duration) *Tracker {
 	}
 }
 
-func (t *Tracker) IsValid(nonce uint64, timestamp int64) bool {
+func (t *Tracker) IsValid(nonce uint64) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 

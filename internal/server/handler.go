@@ -24,6 +24,8 @@ type Handler struct {
 	nonceTracker *nonce.Tracker
 }
 
+const nonceWindow = 5 * time.Minute // 5-minute window for nonces
+
 func NewHandler(config *config.ServerConfig) *Handler {
 	return &Handler{
 		config: config,
@@ -34,7 +36,7 @@ func NewHandler(config *config.ServerConfig) *Handler {
 		},
 		rateLimiter:  ratelimit.NewLimiter(float64(config.RateLimit), int64(config.BurstLimit)),
 		connLimiter:  connlimit.NewLimiter(config.MaxConnections),
-		nonceTracker: nonce.NewTracker(5 * time.Minute), // 5 minute window for nonces
+		nonceTracker: nonce.NewTracker(nonceWindow),
 	}
 }
 
@@ -108,7 +110,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 	}
 
 	// Check for replay attack
-	if !h.nonceTracker.IsValid(uint64(nonceInt), challenge.Timestamp) {
+	if !h.nonceTracker.IsValid(uint64(nonceInt)) {
 		log.Printf("Replay attack detected for nonce %d", nonceInt)
 		conn.Write([]byte("Replay attack detected\n"))
 		return
