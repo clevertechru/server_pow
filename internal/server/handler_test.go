@@ -61,6 +61,7 @@ func TestHandleConnection(t *testing.T) {
 		ChallengeDifficulty: "0000",
 		RateLimit:           1000,
 		BurstLimit:          1000,
+		MaxConnections:      1000,
 	}
 	handler := NewHandler(cfg)
 
