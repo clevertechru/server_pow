@@ -9,15 +9,17 @@ import (
 	"time"
 
 	"github.com/clevertechru/server_pow/pkg/config"
+	"github.com/clevertechru/server_pow/pkg/connlimit"
 	"github.com/clevertechru/server_pow/pkg/pow"
 	"github.com/clevertechru/server_pow/pkg/quotes"
 	"github.com/clevertechru/server_pow/pkg/ratelimit"
 )
 
 type Handler struct {
-	config  *config.ServerConfig
-	pool    *sync.Pool
-	limiter *ratelimit.Limiter
+	config      *config.ServerConfig
+	pool        *sync.Pool
+	rateLimiter *ratelimit.Limiter
+	connLimiter *connlimit.Limiter
 }
 
 func NewHandler(config *config.ServerConfig) *Handler {
@@ -28,14 +30,22 @@ func NewHandler(config *config.ServerConfig) *Handler {
 				return make([]byte, 1024)
 			},
 		},
-		limiter: ratelimit.NewLimiter(float64(config.RateLimit), int64(config.BurstLimit)),
+		rateLimiter: ratelimit.NewLimiter(float64(config.RateLimit), int64(config.BurstLimit)),
+		connLimiter: connlimit.NewLimiter(config.MaxConnections),
 	}
 }
 
 func (h *Handler) HandleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	if !h.limiter.Allow() {
+	if !h.connLimiter.Acquire() {
+		log.Printf("Connection limit exceeded for %s", conn.RemoteAddr())
+		conn.Write([]byte("Connection limit exceeded\n"))
+		return
+	}
+	defer h.connLimiter.Release()
+
+	if !h.rateLimiter.Allow() {
 		log.Printf("Rate limit exceeded for %s", conn.RemoteAddr())
 		conn.Write([]byte("Rate limit exceeded\n"))
 		return
