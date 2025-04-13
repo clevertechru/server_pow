@@ -1,20 +1,21 @@
 package main
 
 import (
-	"github.com/clevertechru/server_pow/internal/client"
-	"github.com/clevertechru/server_pow/pkg/config"
 	"log"
 	"time"
+
+	"github.com/clevertechru/server_pow/internal/client"
+	"github.com/clevertechru/server_pow/pkg/config"
 )
 
 func main() {
-	cfg := config.ClientConfigNew()
-	handler := client.NewHandler(cfg)
+	config := config.NewClientConfig()
+	handler := client.NewHandler(config)
 
 	for {
 		if err := handler.MakeRequest(); err != nil {
 			log.Printf("Error: %v", err)
 		}
-		time.Sleep(cfg.RequestsDelayMs)
+		time.Sleep(config.RequestsDelay)
 	}
 }
