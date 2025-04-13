@@ -14,9 +14,10 @@ cd server_pow
 docker compose up --build
 ```
 
-# How to Run tests
+# How to Run tests and linter
 ```
 go test ./...
+golangci-lint run ./...
 ```
 
 # Server environment settings
