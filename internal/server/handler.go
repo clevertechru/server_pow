@@ -199,6 +199,7 @@ func (h *Handler) handleConnection(conn net.Conn) {
 		return
 	}
 
+	// Only send quote after successful PoW validation
 	quote := quotes.GetRandomQuote()
 	log.Printf("Sending quote: %s", quote)
 	if _, err := conn.Write([]byte(quote + "\n")); err != nil {

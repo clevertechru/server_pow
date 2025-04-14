@@ -82,10 +82,28 @@ func TestHandleConnection(t *testing.T) {
 	parts := strings.Split(challengeStr, "|")
 	require.Len(t, parts, 3, "Invalid challenge format")
 
+	// Test invalid nonce
+	buf := bytes.NewBuffer(nil)
+	if _, err := fmt.Fprintf(buf, "0\n"); err != nil {
+		t.Fatalf("Error writing nonce: %v", err)
+	}
+	if _, err := conn.readBuf.Write(buf.Bytes()); err != nil {
+		t.Fatalf("Error writing nonce: %v", err)
+	}
+
+	// Wait for the nonce to be processed
+	time.Sleep(100 * time.Millisecond)
+
+	response, err := conn.writeBuf.ReadString('\n')
+	require.NoError(t, err, "Failed to read response")
+	response = strings.TrimSpace(response)
+	assert.Equal(t, "Invalid proof of work", response, "Expected invalid PoW response")
+
+	// Test valid nonce
 	nonce, err := pow.SolvePoW(challengeStr)
 	require.NoError(t, err, "Failed to solve PoW")
 
-	buf := bytes.NewBuffer(nil)
+	buf = bytes.NewBuffer(nil)
 	if _, err := fmt.Fprintf(buf, "%d\n", nonce); err != nil {
 		t.Fatalf("Error writing nonce: %v", err)
 	}
