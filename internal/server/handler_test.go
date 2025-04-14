@@ -66,6 +66,7 @@ func TestHandleConnection(t *testing.T) {
 	}
 	handler := NewHandler(cfg)
 
+	// Test invalid nonce first
 	conn := &mockConn{
 		readBuf:  &bytes.Buffer{},
 		writeBuf: &bytes.Buffer{},
@@ -98,8 +99,25 @@ func TestHandleConnection(t *testing.T) {
 	require.NoError(t, err, "Failed to read response")
 	response = strings.TrimSpace(response)
 	assert.Equal(t, "Invalid proof of work", response, "Expected invalid PoW response")
+	assert.True(t, conn.closed, "Expected connection to be closed after invalid PoW")
 
-	// Test valid nonce
+	// Test valid nonce with new connection
+	conn = &mockConn{
+		readBuf:  &bytes.Buffer{},
+		writeBuf: &bytes.Buffer{},
+	}
+
+	handler.ProcessConnection(conn)
+
+	time.Sleep(100 * time.Millisecond)
+
+	challengeStr, err = conn.writeBuf.ReadString('\n')
+	require.NoError(t, err, "Failed to read challenge")
+	challengeStr = strings.TrimSpace(challengeStr)
+
+	parts = strings.Split(challengeStr, "|")
+	require.Len(t, parts, 3, "Invalid challenge format")
+
 	nonce, err := pow.SolvePoW(challengeStr)
 	require.NoError(t, err, "Failed to solve PoW")
 
