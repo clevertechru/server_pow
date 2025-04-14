@@ -12,6 +12,9 @@ type ServerSettings struct {
 	BurstLimit          int           // Burst capacity for rate limiter
 	MaxConnections      int           // Maximum number of concurrent connections
 	WorkerPoolSize      int           // Size of the worker pool
+	QueueSize           int           // Size of the connection queue
+	BaseBackoff         time.Duration // Base backoff duration
+	MaxBackoff          time.Duration // Maximum backoff duration
 }
 
 func NewServerSettings() *ServerSettings {
@@ -25,5 +28,8 @@ func NewServerSettings() *ServerSettings {
 		BurstLimit:          getIntEnvOrDefault("BURST_CAPACITY", 20),
 		MaxConnections:      getIntEnvOrDefault("MAX_ACTIVE_CONNECTIONS", 100),
 		WorkerPoolSize:      getIntEnvOrDefault("WORKER_POOL_SIZE", 10),
+		QueueSize:           getIntEnvOrDefault("QUEUE_SIZE", 50),
+		BaseBackoff:         getDurationEnvOrDefault("BASE_BACKOFF_MS", 100*time.Millisecond),
+		MaxBackoff:          getDurationEnvOrDefault("MAX_BACKOFF_MS", 5000*time.Millisecond),
 	}
 }

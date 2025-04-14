@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clevertechru/server_pow/pkg/backoff"
 	"github.com/clevertechru/server_pow/pkg/config"
 	"github.com/clevertechru/server_pow/pkg/connlimit"
 	"github.com/clevertechru/server_pow/pkg/nonce"
@@ -24,6 +25,7 @@ type Handler struct {
 	connLimiter  *connlimit.Limiter
 	nonceTracker *nonce.Tracker
 	workerPool   *workerpool.Pool
+	backoffQueue *backoff.Queue
 }
 
 const nonceWindow = 5 * time.Minute // 5-minute window for nonces
@@ -40,24 +42,54 @@ func NewHandler(config *config.ServerSettings) *Handler {
 		rateLimiter:  ratelimit.NewLimiter(float64(config.RateLimit), int64(config.BurstLimit)),
 		connLimiter:  connlimit.NewLimiter(config.MaxConnections),
 		nonceTracker: nonce.NewTracker(nonceWindow),
+		backoffQueue: backoff.NewQueue(config.QueueSize, config.BaseBackoff, config.MaxBackoff),
 	}
 
 	h.workerPool = workerpool.NewPool(config.WorkerPoolSize, h.handleConnection)
+
+	// Start queue processor
+	go h.processQueue()
+
 	return h
+}
+
+func (h *Handler) processQueue() {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if conn := h.backoffQueue.Get(); conn != nil {
+			if !h.workerPool.Submit(conn) {
+				if err := conn.Close(); err != nil {
+					log.Printf("Error closing queued connection: %v", err)
+				}
+			}
+		}
+	}
 }
 
 func (h *Handler) ProcessConnection(conn net.Conn) {
 	if !h.workerPool.Submit(conn) {
-		if _, err := conn.Write([]byte("Server is busy\n")); err != nil {
-			log.Printf("Error writing to connection: %v", err)
-		}
-		if err := conn.Close(); err != nil {
-			log.Printf("Error closing connection: %v", err)
+		if h.backoffQueue.Add(conn) {
+			if _, err := conn.Write([]byte("Server is busy, connection queued\n")); err != nil {
+				log.Printf("Error writing to connection: %v", err)
+				if err := conn.Close(); err != nil {
+					log.Printf("Error closing connection: %v", err)
+				}
+			}
+		} else {
+			if _, err := conn.Write([]byte("Server is busy, please try again later\n")); err != nil {
+				log.Printf("Error writing to connection: %v", err)
+			}
+			if err := conn.Close(); err != nil {
+				log.Printf("Error closing connection: %v", err)
+			}
 		}
 	}
 }
 
 func (h *Handler) Shutdown() {
+	h.backoffQueue.Clear()
 	h.workerPool.Shutdown()
 }
 
