@@ -84,9 +84,16 @@ func TestHandleConnection(t *testing.T) {
 	nonce, err := pow.SolvePoW(challengeStr)
 	require.NoError(t, err, "Failed to solve PoW")
 
-	conn.readBuf.Write([]byte(fmt.Sprintf("%d\n", nonce)))
+	buf := bytes.NewBuffer(nil)
+	if _, err := fmt.Fprintf(buf, "%d\n", nonce); err != nil {
+		t.Fatalf("Error writing nonce: %v", err)
+	}
+	if _, err := conn.readBuf.Write(buf.Bytes()); err != nil {
+		t.Fatalf("Error writing nonce: %v", err)
+	}
 
-	time.Sleep(200 * time.Millisecond)
+	// Wait for the nonce to be processed
+	time.Sleep(100 * time.Millisecond)
 
 	quote, err := conn.writeBuf.ReadString('\n')
 	require.NoError(t, err, "Failed to read quote")

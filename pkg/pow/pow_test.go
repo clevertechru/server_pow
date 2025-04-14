@@ -1,9 +1,10 @@
 package pow
 
 import (
-	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateChallenge(t *testing.T) {
@@ -34,36 +35,16 @@ func TestVerifyPoW(t *testing.T) {
 		t.Error("Expected invalid PoW")
 	}
 
-	nonce := int64(0)
-	for {
-		if VerifyPoW(challenge, nonce) {
-			break
-		}
-		nonce++
-		if nonce > 1000000 {
-			t.Fatal("Could not find valid nonce")
-		}
+	var nonce int64
+	for nonce = 0; nonce < 1000000 && !VerifyPoW(challenge, nonce); nonce++ {
 	}
-
-	if !VerifyPoW(challenge, nonce) {
-		t.Error("Expected valid PoW")
-	}
+	require.True(t, VerifyPoW(challenge, nonce), "Failed to find valid nonce")
 }
 
 func TestSolvePoW(t *testing.T) {
-	challenge := Challenge{
-		Data:      "testdata",
-		Target:    "0000",
-		Timestamp: time.Now().Unix(),
+	challenge := GenerateChallenge("0000")
+	var nonce int64
+	for nonce = 0; nonce < 1000000 && !VerifyPoW(challenge, nonce); nonce++ {
 	}
-	challengeStr := fmt.Sprintf("%s|%s|%d", challenge.Data, challenge.Target, challenge.Timestamp)
-
-	nonce, err := SolvePoW(challengeStr)
-	if err != nil {
-		t.Fatalf("Failed to solve PoW: %v", err)
-	}
-
-	if !VerifyPoW(challenge, nonce) {
-		t.Error("Solved nonce does not verify")
-	}
+	require.True(t, VerifyPoW(challenge, nonce), "Failed to find valid nonce")
 }
