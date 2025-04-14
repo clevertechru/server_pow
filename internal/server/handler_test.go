@@ -57,11 +57,12 @@ func (m *mockConn) SetWriteDeadline(t time.Time) error {
 }
 
 func TestHandleConnection(t *testing.T) {
-	cfg := &config.ServerConfig{
+	cfg := &config.ServerSettings{
 		ChallengeDifficulty: "0000",
 		RateLimit:           1000,
 		BurstLimit:          1000,
 		MaxConnections:      1000,
+		WorkerPoolSize:      10,
 	}
 	handler := NewHandler(cfg)
 
@@ -70,7 +71,7 @@ func TestHandleConnection(t *testing.T) {
 		writeBuf: &bytes.Buffer{},
 	}
 
-	go handler.HandleConnection(conn)
+	handler.ProcessConnection(conn)
 
 	time.Sleep(100 * time.Millisecond)
 

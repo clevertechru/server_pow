@@ -14,20 +14,22 @@ import (
 	"github.com/clevertechru/server_pow/pkg/pow"
 	"github.com/clevertechru/server_pow/pkg/quotes"
 	"github.com/clevertechru/server_pow/pkg/ratelimit"
+	"github.com/clevertechru/server_pow/pkg/workerpool"
 )
 
 type Handler struct {
-	config       *config.ServerConfig
+	config       *config.ServerSettings
 	pool         *sync.Pool
 	rateLimiter  *ratelimit.Limiter
 	connLimiter  *connlimit.Limiter
 	nonceTracker *nonce.Tracker
+	workerPool   *workerpool.Pool
 }
 
 const nonceWindow = 5 * time.Minute // 5-minute window for nonces
 
-func NewHandler(config *config.ServerConfig) *Handler {
-	return &Handler{
+func NewHandler(config *config.ServerSettings) *Handler {
+	h := &Handler{
 		config: config,
 		pool: &sync.Pool{
 			New: func() interface{} {
@@ -39,9 +41,27 @@ func NewHandler(config *config.ServerConfig) *Handler {
 		connLimiter:  connlimit.NewLimiter(config.MaxConnections),
 		nonceTracker: nonce.NewTracker(nonceWindow),
 	}
+
+	h.workerPool = workerpool.NewPool(config.WorkerPoolSize, h.handleConnection)
+	return h
 }
 
-func (h *Handler) HandleConnection(conn net.Conn) {
+func (h *Handler) ProcessConnection(conn net.Conn) {
+	if !h.workerPool.Submit(conn) {
+		if _, err := conn.Write([]byte("Server is busy\n")); err != nil {
+			log.Printf("Error writing to connection: %v", err)
+		}
+		if err := conn.Close(); err != nil {
+			log.Printf("Error closing connection: %v", err)
+		}
+	}
+}
+
+func (h *Handler) Shutdown() {
+	h.workerPool.Shutdown()
+}
+
+func (h *Handler) handleConnection(conn net.Conn) {
 	defer func() {
 		if err := conn.Close(); err != nil {
 			log.Printf("Error closing connection: %v", err)
