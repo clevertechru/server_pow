@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/clevertechru/server_pow/pkg/backoff"
 	"github.com/clevertechru/server_pow/pkg/config"
+	"github.com/clevertechru/server_pow/pkg/connctx"
 	"github.com/clevertechru/server_pow/pkg/connlimit"
 	"github.com/clevertechru/server_pow/pkg/nonce"
 	"github.com/clevertechru/server_pow/pkg/pow"
@@ -19,6 +21,8 @@ import (
 )
 
 type Handler struct {
+	ctx          context.Context
+	cancel       context.CancelFunc
 	config       *config.ServerSettings
 	pool         *sync.Pool
 	rateLimiter  *ratelimit.Limiter
@@ -31,7 +35,10 @@ type Handler struct {
 const nonceWindow = 5 * time.Minute // 5-minute window for nonces
 
 func NewHandler(config *config.ServerSettings) *Handler {
+	ctx, cancel := context.WithCancel(context.Background())
 	h := &Handler{
+		ctx:    ctx,
+		cancel: cancel,
 		config: config,
 		pool: &sync.Pool{
 			New: func() interface{} {
@@ -46,8 +53,6 @@ func NewHandler(config *config.ServerSettings) *Handler {
 	}
 
 	h.workerPool = workerpool.NewPool(config.WorkerPoolSize, h.handleConnection)
-
-	// Start queue processor
 	go h.processQueue()
 
 	return h
@@ -57,11 +62,16 @@ func (h *Handler) processQueue() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		if conn := h.backoffQueue.Get(); conn != nil {
-			if !h.workerPool.Submit(conn) {
-				if err := conn.Close(); err != nil {
-					log.Printf("Error closing queued connection: %v", err)
+	for {
+		select {
+		case <-h.ctx.Done():
+			return
+		case <-ticker.C:
+			if conn := h.backoffQueue.Get(); conn != nil {
+				if !h.workerPool.Submit(conn) {
+					if err := conn.Close(); err != nil {
+						log.Printf("Error closing queued connection: %v", err)
+					}
 				}
 			}
 		}
@@ -89,89 +99,78 @@ func (h *Handler) ProcessConnection(conn net.Conn) {
 }
 
 func (h *Handler) Shutdown() {
+	h.cancel()
 	h.backoffQueue.Clear()
 	h.workerPool.Shutdown()
 }
 
 func (h *Handler) handleConnection(conn net.Conn) {
-	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Printf("Error closing connection: %v", err)
-		}
-	}()
+	connCtx := connctx.NewConnContext(h.ctx, conn, h.config.ReadTimeout)
+	defer connCtx.Close()
+
+	log.Printf("[%s] New connection from %s", connCtx.ID(), connCtx.RemoteAddr())
+	defer log.Printf("[%s] Connection closed after %v", connCtx.ID(), connCtx.Duration())
 
 	if !h.connLimiter.Acquire() {
-		log.Printf("Connection limit exceeded for %s", conn.RemoteAddr())
-		if _, err := conn.Write([]byte("Connection limit exceeded\n")); err != nil {
-			log.Printf("Error writing to connection: %v", err)
+		log.Printf("[%s] Connection limit exceeded", connCtx.ID())
+		if _, err := connCtx.Write([]byte("Connection limit exceeded\n")); err != nil {
+			log.Printf("[%s] Error writing to connection: %v", connCtx.ID(), err)
 		}
 		return
 	}
 	defer h.connLimiter.Release()
 
 	if !h.rateLimiter.Allow() {
-		log.Printf("Rate limit exceeded for %s", conn.RemoteAddr())
-		if _, err := conn.Write([]byte("Rate limit exceeded\n")); err != nil {
-			log.Printf("Error writing to connection: %v", err)
+		log.Printf("[%s] Rate limit exceeded", connCtx.ID())
+		if _, err := connCtx.Write([]byte("Rate limit exceeded\n")); err != nil {
+			log.Printf("[%s] Error writing to connection: %v", connCtx.ID(), err)
 		}
-		return
-	}
-
-	if err := conn.SetReadDeadline(time.Now().Add(h.config.ReadTimeout)); err != nil {
-		log.Printf("Error setting read deadline: %v", err)
-		return
-	}
-	if err := conn.SetWriteDeadline(time.Now().Add(h.config.WriteTimeout)); err != nil {
-		log.Printf("Error setting write deadline: %v", err)
 		return
 	}
 
 	challenge := pow.GenerateChallenge(h.config.ChallengeDifficulty)
 	challengeStr := fmt.Sprintf("%s|%s|%d", challenge.Data, challenge.Target, challenge.Timestamp)
-	log.Printf("Sending challenge: %s", challengeStr)
-	if _, err := conn.Write([]byte(challengeStr + "\n")); err != nil {
-		log.Printf("Error writing challenge: %v", err)
+	log.Printf("[%s] Sending challenge: %s", connCtx.ID(), challengeStr)
+
+	if _, err := connCtx.Write([]byte(challengeStr + "\n")); err != nil {
+		log.Printf("[%s] Error writing challenge: %v", connCtx.ID(), err)
 		return
 	}
 
-	// Read nonce
 	bufferPtr := h.pool.Get().(*[]byte)
 	buffer := *bufferPtr
-	defer func() {
-		if bufferPtr != nil {
-			h.pool.Put(bufferPtr)
-		}
-	}()
+	defer h.pool.Put(bufferPtr)
 
-	// Read nonce with retries
 	var nonce string
 	for {
-		if err := conn.SetReadDeadline(time.Now().Add(h.config.ReadTimeout)); err != nil {
-			log.Printf("Error setting read deadline: %v", err)
+		select {
+		case <-connCtx.Done():
+			log.Printf("[%s] Connection context canceled", connCtx.ID())
 			return
-		}
-		n, err := conn.Read(buffer)
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				log.Printf("Read timeout: %v", err)
+		default:
+			n, err := connCtx.Read(buffer)
+			if err != nil {
+				if err == context.DeadlineExceeded {
+					log.Printf("[%s] Read timeout", connCtx.ID())
+				} else {
+					log.Printf("[%s] Error reading nonce: %v", connCtx.ID(), err)
+				}
+				return
+			}
+			if n == 0 {
 				continue
 			}
-			log.Printf("Error reading nonce: %v", err)
-			return
-		}
-		if n == 0 {
-			continue
-		}
-		nonce = strings.TrimSpace(string(buffer[:n]))
-		if nonce != "" {
-			break
+			nonce = strings.TrimSpace(string(buffer[:n]))
+			if nonce != "" {
+				break
+			}
 		}
 	}
 
-	log.Printf("Received nonce: %s", nonce)
+	log.Printf("[%s] Received nonce: %s", connCtx.ID(), nonce)
 	var nonceInt int64
 	if _, err := fmt.Sscanf(nonce, "%d", &nonceInt); err != nil {
-		log.Printf("Error parsing nonce: %v", err)
+		log.Printf("[%s] Error parsing nonce: %v", connCtx.ID(), err)
 		return
 	}
 
@@ -181,27 +180,27 @@ func (h *Handler) handleConnection(conn net.Conn) {
 		Target:    parts[1],
 		Timestamp: challenge.Timestamp,
 	}
-	log.Printf("Verifying challenge: %+v with nonce: %d", verifyChallenge, nonceInt)
+	log.Printf("[%s] Verifying challenge: %+v with nonce: %d", connCtx.ID(), verifyChallenge, nonceInt)
 
 	if !pow.VerifyPoW(verifyChallenge, nonceInt) {
-		log.Printf("Invalid proof of work")
-		if _, err := conn.Write([]byte("Invalid proof of work\n")); err != nil {
-			log.Printf("Error writing to connection: %v", err)
+		log.Printf("[%s] Invalid proof of work", connCtx.ID())
+		if _, err := connCtx.Write([]byte("Invalid proof of work\n")); err != nil {
+			log.Printf("[%s] Error writing to connection: %v", connCtx.ID(), err)
 		}
 		return
 	}
 
 	if !h.nonceTracker.IsValid(uint64(nonceInt)) {
-		log.Printf("Replay attack detected for nonce %d", nonceInt)
-		if _, err := conn.Write([]byte("Replay attack detected\n")); err != nil {
-			log.Printf("Error writing to connection: %v", err)
+		log.Printf("[%s] Replay attack detected for nonce %d", connCtx.ID(), nonceInt)
+		if _, err := connCtx.Write([]byte("Replay attack detected\n")); err != nil {
+			log.Printf("[%s] Error writing to connection: %v", connCtx.ID(), err)
 		}
 		return
 	}
 
 	quote := quotes.GetRandomQuote()
-	log.Printf("Sending quote: %s", quote)
-	if _, err := conn.Write([]byte(quote + "\n")); err != nil {
-		log.Printf("Error writing quote: %v", err)
+	log.Printf("[%s] Sending quote: %s", connCtx.ID(), quote)
+	if _, err := connCtx.Write([]byte(quote + "\n")); err != nil {
+		log.Printf("[%s] Error writing quote: %v", connCtx.ID(), err)
 	}
 }
