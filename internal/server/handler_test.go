@@ -4,14 +4,18 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/clevertechru/server_pow/pkg/config"
 	"github.com/clevertechru/server_pow/pkg/pow"
+	"github.com/clevertechru/server_pow/pkg/quotes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 type mockConn struct {
@@ -57,6 +61,36 @@ func (m *mockConn) SetWriteDeadline(t time.Time) error {
 }
 
 func TestHandleConnection(t *testing.T) {
+	// Create a temporary quotes file
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "quotes.yml")
+	quotesList := []string{
+		"Test quote 1",
+		"Test quote 2",
+		"Test quote 3",
+	}
+
+	data := struct {
+		Quotes []string `yaml:"quotes"`
+	}{
+		Quotes: quotesList,
+	}
+
+	file, err := os.Create(configPath)
+	require.NoError(t, err, "Failed to create test quotes file")
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("Failed to close test quotes file: %v", err)
+		}
+	}()
+
+	if err := yaml.NewEncoder(file).Encode(data); err != nil {
+		t.Fatalf("Failed to write test quotes: %v", err)
+	}
+
+	// Initialize quotes storage
+	require.NoError(t, quotes.Init(configPath), "Failed to initialize quotes storage")
+
 	cfg := &config.ServerSettings{
 		ChallengeDifficulty: 2, // 2 bytes = 16 leading zeros
 		RateLimit:           1000,
@@ -64,7 +98,8 @@ func TestHandleConnection(t *testing.T) {
 		MaxConnections:      1000,
 		WorkerPoolSize:      10,
 	}
-	handler := NewHandler(cfg)
+	handler, err := NewHandler(cfg)
+	require.NoError(t, err, "Failed to create handler")
 
 	// Test invalid nonce first
 	conn := &mockConn{

@@ -5,7 +5,7 @@ WORKDIR /app
 COPY ./cmd/client ./cmd/client
 COPY ./internal/client ./internal/client
 COPY ./pkg ./pkg
-COPY go.mod .
+COPY go.mod go.sum ./
 
 RUN go build -o client ./cmd/client
 
