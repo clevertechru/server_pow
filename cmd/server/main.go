@@ -6,15 +6,27 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/clevertechru/server_pow/internal/server"
 	"github.com/clevertechru/server_pow/pkg/config"
+	"github.com/clevertechru/server_pow/pkg/quotes"
 )
 
 func main() {
 	cfg := config.NewServerSettings()
-	handler := server.NewHandler(cfg)
+
+	// Initialize quotes storage
+	configPath := filepath.Join("config", "quotes.yml")
+	if err := quotes.Init(configPath); err != nil {
+		log.Fatalf("Failed to initialize quotes storage: %v", err)
+	}
+
+	handler, err := server.NewHandler(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create handler: %v", err)
+	}
 
 	addr := net.JoinHostPort(cfg.Host, cfg.Port)
 	listener, err := net.Listen("tcp", addr)

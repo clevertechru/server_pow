@@ -64,7 +64,8 @@ func TestHandleConnection(t *testing.T) {
 		MaxConnections:      1000,
 		WorkerPoolSize:      10,
 	}
-	handler := NewHandler(cfg)
+	handler, err := NewHandler(cfg)
+	require.NoError(t, err, "Failed to create handler")
 
 	// Test invalid nonce first
 	conn := &mockConn{

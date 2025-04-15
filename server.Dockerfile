@@ -1,13 +1,19 @@
-FROM golang:1.21-alpine
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-COPY ./cmd/server ./cmd/server
-COPY ./internal/server ./internal/server
-COPY ./pkg ./pkg
-COPY go.mod .
+COPY go.mod go.sum ./
+RUN go mod download
 
+COPY . .
 RUN go build -o server ./cmd/server
+
+FROM alpine:latest
+
+WORKDIR /app
+
+COPY --from=builder /app/server .
+COPY config/quotes.yml ./config/
 
 EXPOSE 8080
 
