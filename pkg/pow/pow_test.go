@@ -1,50 +1,79 @@
 package pow
 
 import (
+	"fmt"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateChallenge(t *testing.T) {
-	difficulty := "0000"
+	difficulty := 4
 	challenge := GenerateChallenge(difficulty)
 
-	if challenge.Target != difficulty {
-		t.Errorf("Expected target %s, got %s", difficulty, challenge.Target)
+	if challenge.Data == "" {
+		t.Error("Expected non-empty data")
 	}
-
+	if challenge.Target != difficulty {
+		t.Errorf("Expected target %d, got %d", difficulty, challenge.Target)
+	}
 	if challenge.Timestamp == 0 {
 		t.Error("Expected non-zero timestamp")
-	}
-
-	if len(challenge.Data) == 0 {
-		t.Error("Expected non-empty data")
 	}
 }
 
 func TestVerifyPoW(t *testing.T) {
 	challenge := Challenge{
-		Data:      "testdata",
-		Target:    "0000",
+		Data:      "test data",
+		Target:    2, // Lower difficulty for faster tests
 		Timestamp: time.Now().Unix(),
 	}
 
-	if VerifyPoW(challenge, 0) {
-		t.Error("Expected invalid PoW")
+	// Find a valid nonce with timeout
+	nonce := int64(0)
+	start := time.Now()
+	for !VerifyPoW(challenge, nonce) {
+		nonce++
+		if time.Since(start) > 100*time.Millisecond {
+			t.Fatal("Timeout finding valid nonce")
+		}
 	}
 
-	var nonce int64
-	for nonce = 0; nonce < 1000000 && !VerifyPoW(challenge, nonce); nonce++ {
+	if !VerifyPoW(challenge, nonce) {
+		t.Error("Expected valid PoW verification")
 	}
-	require.True(t, VerifyPoW(challenge, nonce), "Failed to find valid nonce")
+
+	// Test with invalid nonce
+	if VerifyPoW(challenge, nonce+1) {
+		t.Error("Expected invalid PoW verification")
+	}
 }
 
 func TestSolvePoW(t *testing.T) {
-	challenge := GenerateChallenge("0000")
-	var nonce int64
-	for nonce = 0; nonce < 1000000 && !VerifyPoW(challenge, nonce); nonce++ {
+	challenge := Challenge{
+		Data:      "test data",
+		Target:    2, // Lower difficulty for faster tests
+		Timestamp: time.Now().Unix(),
 	}
-	require.True(t, VerifyPoW(challenge, nonce), "Failed to find valid nonce")
+
+	challengeStr := fmt.Sprintf("%s|%d|%d", challenge.Data, challenge.Target, challenge.Timestamp)
+
+	// Run in parallel with timeout
+	done := make(chan struct{})
+	go func() {
+		nonce, err := SolvePoW(challengeStr)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if !VerifyPoW(challenge, nonce) {
+			t.Error("Expected valid PoW solution")
+		}
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Test completed successfully
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("Timeout solving PoW")
+	}
 }

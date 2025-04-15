@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -127,7 +128,7 @@ func (h *Handler) handleConnection(conn net.Conn) {
 	}
 
 	challenge := pow.GenerateChallenge(h.config.ChallengeDifficulty)
-	challengeStr := fmt.Sprintf("%s|%s|%d", challenge.Data, challenge.Target, challenge.Timestamp)
+	challengeStr := fmt.Sprintf("%s|%d|%d", challenge.Data, challenge.Target, challenge.Timestamp)
 	log.Printf("Sending challenge: %s", challengeStr)
 	if _, err := conn.Write([]byte(challengeStr + "\n")); err != nil {
 		log.Printf("Error writing challenge: %v", err)
@@ -175,11 +176,29 @@ func (h *Handler) handleConnection(conn net.Conn) {
 		return
 	}
 
+	// Parse challenge string
 	parts := strings.Split(challengeStr, "|")
+	if len(parts) != 3 {
+		log.Printf("Invalid challenge format")
+		return
+	}
+
+	target, err := strconv.Atoi(parts[1])
+	if err != nil {
+		log.Printf("Invalid target: %v", err)
+		return
+	}
+
+	timestamp, err := strconv.ParseInt(parts[2], 10, 64)
+	if err != nil {
+		log.Printf("Invalid timestamp: %v", err)
+		return
+	}
+
 	verifyChallenge := pow.Challenge{
 		Data:      parts[0],
-		Target:    parts[1],
-		Timestamp: challenge.Timestamp,
+		Target:    target,
+		Timestamp: timestamp,
 	}
 	log.Printf("Verifying challenge: %+v with nonce: %d", verifyChallenge, nonceInt)
 

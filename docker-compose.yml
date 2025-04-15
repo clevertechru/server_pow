@@ -8,7 +8,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8080
-      - CHALLENGE_DIFFICULTY=0000
+      - CHALLENGE_DIFFICULTY=2
     networks:
       - pow-network
 

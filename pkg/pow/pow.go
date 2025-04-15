@@ -2,21 +2,22 @@ package pow
 
 import (
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"github.com/clevertechru/server_pow/pkg/quotes"
+	"math/bits"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/clevertechru/server_pow/pkg/quotes"
 )
 
 type Challenge struct {
 	Data      string
-	Target    string
+	Target    int
 	Timestamp int64
 }
 
-func GenerateChallenge(difficulty string) Challenge {
+func GenerateChallenge(difficulty int) Challenge {
 	return Challenge{
 		Data:      quotes.GetRandomQuote(),
 		Target:    difficulty,
@@ -27,8 +28,21 @@ func GenerateChallenge(difficulty string) Challenge {
 func VerifyPoW(challenge Challenge, nonce int64) bool {
 	data := fmt.Sprintf("%s%d%d", challenge.Data, challenge.Timestamp, nonce)
 	hash := sha256.Sum256([]byte(data))
-	hexHash := hex.EncodeToString(hash[:])
-	return strings.HasPrefix(hexHash, challenge.Target)
+
+	// Count leading zeros in the hash
+	leadingZeros := 0
+	for _, b := range hash {
+		if b == 0 {
+			leadingZeros += 8
+		} else {
+			leadingZeros += bits.LeadingZeros8(b)
+			break
+		}
+	}
+
+	// Target is the number of leading zeros required
+	// Each byte has 8 bits, so we need to multiply by 8
+	return leadingZeros >= challenge.Target*8
 }
 
 func SolvePoW(challengeStr string) (int64, error) {
@@ -38,7 +52,10 @@ func SolvePoW(challengeStr string) (int64, error) {
 	}
 
 	data := parts[0]
-	target := parts[1]
+	target, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid target: %v", err)
+	}
 	timestamp, err := strconv.ParseInt(parts[2], 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid timestamp: %v", err)
@@ -47,9 +64,19 @@ func SolvePoW(challengeStr string) (int64, error) {
 	nonce := int64(0)
 	for {
 		hash := sha256.Sum256([]byte(fmt.Sprintf("%s%d%d", data, timestamp, nonce)))
-		hexHash := hex.EncodeToString(hash[:])
 
-		if strings.HasPrefix(hexHash, target) {
+		// Count leading zeros in the hash
+		leadingZeros := 0
+		for _, b := range hash {
+			if b == 0 {
+				leadingZeros += 8
+			} else {
+				leadingZeros += bits.LeadingZeros8(b)
+				break
+			}
+		}
+
+		if leadingZeros >= target*8 {
 			return nonce, nil
 		}
 		nonce++

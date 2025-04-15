@@ -5,7 +5,7 @@ import "time"
 type ServerSettings struct {
 	Host                string        // Host to bind to
 	Port                string        // Port to listen on
-	ChallengeDifficulty string        // Difficulty target for PoW
+	ChallengeDifficulty int           // Difficulty target for PoW
 	ReadTimeout         time.Duration // Read timeout for connections
 	WriteTimeout        time.Duration // Write timeout for connections
 	RateLimit           int           // Rate limit in requests per second
@@ -21,7 +21,7 @@ func NewServerSettings() *ServerSettings {
 	return &ServerSettings{
 		Host:                getEnvOrDefault("HOST", "0.0.0.0"),
 		Port:                getEnvOrDefault("PORT", "8080"),
-		ChallengeDifficulty: getEnvOrDefault("CHALLENGE_DIFFICULTY", "0000"),
+		ChallengeDifficulty: getIntEnvOrDefault("CHALLENGE_DIFFICULTY", 2),
 		ReadTimeout:         getDurationEnvOrDefault("READ_TIMEOUT_MS", 30_000*time.Millisecond),
 		WriteTimeout:        getDurationEnvOrDefault("WRITE_TIMEOUT_MS", 30_000*time.Millisecond),
 		RateLimit:           getIntEnvOrDefault("RATE_LIMIT_RPS", 10),
