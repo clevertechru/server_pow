@@ -2,11 +2,50 @@ package pow
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/clevertechru/server_pow/pkg/quotes"
+	"gopkg.in/yaml.v3"
 )
 
 func TestGenerateChallenge(t *testing.T) {
+	// Create a temporary quotes file
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "quotes.yml")
+	quotesList := []string{
+		"Test quote 1",
+		"Test quote 2",
+		"Test quote 3",
+	}
+
+	data := struct {
+		Quotes []string `yaml:"quotes"`
+	}{
+		Quotes: quotesList,
+	}
+
+	file, err := os.Create(configPath)
+	if err != nil {
+		t.Fatalf("Failed to create test quotes file: %v", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("Failed to close test quotes file: %v", err)
+		}
+	}()
+
+	if err := yaml.NewEncoder(file).Encode(data); err != nil {
+		t.Fatalf("Failed to write test quotes: %v", err)
+	}
+
+	// Initialize quotes storage
+	if err := quotes.Init(configPath); err != nil {
+		t.Fatalf("Failed to initialize quotes storage: %v", err)
+	}
+
 	difficulty := 4
 	challenge := GenerateChallenge(difficulty)
 
