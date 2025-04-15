@@ -18,6 +18,37 @@
 * The client must find a nonce that, when combined with the quote and timestamp, produces a hash starting with the target
 * This is computationally intensive but verifiable quickly
 * The difficulty can be adjusted by changing the number of zeros in the target
+
+# Project Structure
+```
+.
+├── cmd/                               # Main application entry points
+│   ├── client/                        # Client application
+│   └── server/                        # Server application
+├── internal/                          # Private application code
+│   ├── client/                        # Client implementation
+│   └── server/                        # Server implementation
+│       ├── service/                   # Server services
+│       │   ├── connection_manager.go  # Connection handling and timeouts
+│       │   ├── pow_service.go         # Proof of Work service
+│       │   └── quote_service.go       # Quote service
+│       └── handler.go                 # Main server handler
+├── pkg/                               # Public libraries
+│   ├── backoff/                       # Backoff queue implementation
+│   ├── config/                        # Configuration handling
+│   ├── connlimit/                     # Connection limiting
+│   ├── nonce/                         # Nonce tracking
+│   ├── pow/                           # Proof of Work implementation
+│   ├── quotes/                        # Quotes storage and retrieval
+│   ├── ratelimit/                     # Rate limiting
+│   └── workerpool/                    # Worker pool implementation
+├── config/                            # Configuration files
+├── vendor/                            # Dependencies
+├── docker-compose.yml                 # Docker Compose configuration
+├── client.Dockerfile                  # Client Dockerfile
+└── server.Dockerfile                  # Server Dockerfile
+```
+
 # How to RUN
 ```
 git clone https://github.com/clevertechru/server_pow.git
