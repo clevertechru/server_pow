@@ -5,12 +5,14 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/clevertechru/server_pow/internal/server/service"
 	"github.com/clevertechru/server_pow/pkg/backoff"
 	"github.com/clevertechru/server_pow/pkg/config"
 	"github.com/clevertechru/server_pow/pkg/connlimit"
+	"github.com/clevertechru/server_pow/pkg/metrics"
 	"github.com/clevertechru/server_pow/pkg/ratelimit"
 	"github.com/clevertechru/server_pow/pkg/workerpool"
 )
@@ -91,76 +93,83 @@ func (h *Handler) Shutdown() {
 }
 
 func (h *Handler) handleConnection(conn net.Conn) {
+	start := time.Now()
 	defer func() {
+		metrics.ResponseTime.Observe(time.Since(start).Seconds())
+	}()
+
+	// Check rate limit
+	if !h.rateLimiter.Allow() {
+		metrics.RateLimitHits.Inc()
+		log.Printf("Rate limit exceeded for %s", conn.RemoteAddr())
 		if err := conn.Close(); err != nil {
 			log.Printf("Error closing connection: %v", err)
 		}
-	}()
+		return
+	}
 
+	// Check connection limit
 	if !h.connLimiter.Acquire() {
 		log.Printf("Connection limit exceeded for %s", conn.RemoteAddr())
-		if err := h.connManager.Write(conn, "Connection limit exceeded"); err != nil {
-			log.Printf("Error writing to connection: %v", err)
+		if err := conn.Close(); err != nil {
+			log.Printf("Error closing connection: %v", err)
 		}
 		return
 	}
 	defer h.connLimiter.Release()
 
-	if !h.rateLimiter.Allow() {
-		log.Printf("Rate limit exceeded for %s", conn.RemoteAddr())
-		if err := h.connManager.Write(conn, "Rate limit exceeded"); err != nil {
-			log.Printf("Error writing to connection: %v", err)
+	metrics.ActiveConnections.Inc()
+	metrics.TotalConnections.Inc()
+	defer metrics.ActiveConnections.Dec()
+
+	// Set timeouts
+	if err := h.connManager.SetTimeouts(conn); err != nil {
+		log.Printf("Error setting timeouts: %v", err)
+		if err := conn.Close(); err != nil {
+			log.Printf("Error closing connection: %v", err)
 		}
 		return
 	}
 
+	// Generate challenge
 	challenge := h.powService.GenerateChallenge()
+	metrics.PoWChallengesGenerated.Inc()
+
+	// Send challenge
 	challengeStr := h.powService.FormatChallenge(challenge)
-	log.Printf("Sending challenge: %s", challengeStr)
 	if err := h.connManager.Write(conn, challengeStr); err != nil {
-		log.Printf("Error writing challenge: %v", err)
+		log.Printf("Error sending challenge: %v", err)
 		return
 	}
 
+	// Read nonce
 	nonceStr, err := h.connManager.ReadWithRetry(conn)
 	if err != nil {
 		log.Printf("Error reading nonce: %v", err)
 		return
 	}
 
-	log.Printf("Received nonce: %s", nonceStr)
-	nonceInt, err := strconv.ParseInt(nonceStr, 10, 64)
+	nonce, err := strconv.ParseInt(strings.TrimSpace(nonceStr), 10, 64)
 	if err != nil {
 		log.Printf("Error parsing nonce: %v", err)
 		return
 	}
 
-	verifyChallenge, err := h.powService.ParseChallenge(challengeStr)
-	if err != nil {
-		log.Printf("Error parsing challenge: %v", err)
-		return
-	}
-
-	log.Printf("Verifying challenge: %+v with nonce: %d", verifyChallenge, nonceInt)
-	if !h.powService.VerifyPoW(verifyChallenge, nonceInt) {
-		log.Printf("Invalid proof of work")
+	// Verify PoW
+	metrics.PoWChallengesVerified.Inc()
+	if !h.powService.VerifyPoW(challenge, nonce) {
+		metrics.PoWVerificationFailures.Inc()
+		log.Printf("Invalid PoW from %s", conn.RemoteAddr())
 		if err := h.connManager.Write(conn, "Invalid proof of work"); err != nil {
-			log.Printf("Error writing to connection: %v", err)
+			log.Printf("Error sending invalid PoW response: %v", err)
 		}
 		return
 	}
 
-	if !h.powService.ValidateNonce(uint64(nonceInt)) {
-		log.Printf("Replay attack detected for nonce %d", nonceInt)
-		if err := h.connManager.Write(conn, "Replay attack detected"); err != nil {
-			log.Printf("Error writing to connection: %v", err)
-		}
-		return
-	}
-
+	// Send quote
 	quote := h.quoteService.GetRandomQuote()
-	log.Printf("Sending quote: %s", quote)
 	if err := h.connManager.Write(conn, quote); err != nil {
-		log.Printf("Error writing quote: %v", err)
+		log.Printf("Error sending quote: %v", err)
+		return
 	}
 }

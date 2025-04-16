@@ -12,6 +12,7 @@
 * Graceful shutdown
 * Comprehensive test coverage
 * Docker support
+* Prometheus metrics for monitoring
 ## PoW Algorithm Choice:
 * Using SHA256 with a nonce-based challenge
 * The server generates a random quote and a target (currently set to 2)
@@ -37,6 +38,7 @@
 │   ├── backoff/                       # Backoff queue implementation
 │   ├── config/                        # Configuration handling
 │   ├── connlimit/                     # Connection limiting
+│   ├── metrics/                       # Prometheus metrics
 │   ├── nonce/                         # Nonce tracking
 │   ├── pow/                           # Proof of Work implementation
 │   ├── quotes/                        # Quotes storage and retrieval
@@ -48,6 +50,28 @@
 ├── client.Dockerfile                  # Client Dockerfile
 └── server.Dockerfile                  # Server Dockerfile
 ```
+
+# Metrics
+The server exposes the following Prometheus metrics:
+
+## Connection Metrics
+* `server_active_connections` - Number of active connections
+* `server_total_connections` - Total number of connections
+
+## PoW Metrics
+* `server_pow_challenges_generated` - Number of PoW challenges generated
+* `server_pow_challenges_verified` - Number of PoW challenges verified
+* `server_pow_verification_failures` - Number of PoW verification failures
+
+## Rate Limiting Metrics
+* `server_rate_limit_hits` - Number of rate limit hits
+
+## Worker Pool Metrics
+* `server_worker_pool_size` - Current size of the worker pool
+* `server_worker_pool_queue_size` - Current size of the worker pool queue
+
+## Response Time Metrics
+* `server_response_time_seconds` - Response time in seconds (histogram)
 
 # How to RUN
 ```
@@ -95,6 +119,6 @@ quotes:
 ```
 
 # Development
-* Go 1.21 or later required
+* Go 1.22 or later required
 * Docker and Docker Compose for containerized deployment
 * golangci-lint for code quality checks

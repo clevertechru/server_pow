@@ -4,15 +4,19 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
+
+	"github.com/clevertechru/server_pow/pkg/metrics"
 )
 
 type Pool struct {
-	workers    int
-	tasks      chan net.Conn
-	wg         sync.WaitGroup
-	handler    func(net.Conn)
-	isShutdown bool
-	mu         sync.RWMutex
+	workers       int
+	tasks         chan net.Conn
+	wg            sync.WaitGroup
+	handler       func(net.Conn)
+	isShutdown    bool
+	mu            sync.RWMutex
+	activeWorkers int32
 }
 
 func NewPool(workers int, handler func(net.Conn)) *Pool {
@@ -25,6 +29,9 @@ func NewPool(workers int, handler func(net.Conn)) *Pool {
 		tasks:   make(chan net.Conn, workers*2), // buffer size = 2x workers
 		handler: handler,
 	}
+
+	// Update metrics
+	metrics.WorkerPoolSize.Set(float64(workers))
 
 	p.start()
 	return p
@@ -39,6 +46,8 @@ func (p *Pool) start() {
 
 func (p *Pool) worker() {
 	defer p.wg.Done()
+	atomic.AddInt32(&p.activeWorkers, 1)
+	defer atomic.AddInt32(&p.activeWorkers, -1)
 
 	for conn := range p.tasks {
 		if conn == nil {
@@ -58,6 +67,8 @@ func (p *Pool) Submit(conn net.Conn) bool {
 
 	select {
 	case p.tasks <- conn:
+		// Update queue size metric
+		metrics.WorkerPoolQueueSize.Set(float64(len(p.tasks)))
 		return true
 	default:
 		log.Printf("Worker pool is full, connection rejected")
