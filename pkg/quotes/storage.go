@@ -3,22 +3,21 @@ package quotes
 import (
 	"math/rand"
 	"os"
-	"sync"
 	"time"
 
+	genericStorage "github.com/clevertechru/server_pow/pkg/storage"
 	"gopkg.in/yaml.v3"
 )
-
-type Storage struct {
-	mu     sync.RWMutex
-	quotes []string
-}
 
 type Config struct {
 	Quotes []string `yaml:"quotes"`
 }
 
-func NewStorage(configPath string) (*Storage, error) {
+type QuotesStorage struct {
+	storage genericStorage.Storage
+}
+
+func NewStorage(configPath string) (*QuotesStorage, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
@@ -29,19 +28,34 @@ func NewStorage(configPath string) (*Storage, error) {
 		return nil, err
 	}
 
-	return &Storage{
-		quotes: config.Quotes,
+	s := genericStorage.NewInMemoryStorage()
+	for i, quote := range config.Quotes {
+		s.Set(string(rune(i)), quote)
+	}
+
+	return &QuotesStorage{
+		storage: s,
 	}, nil
 }
 
-func (s *Storage) GetRandomQuote() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+func (s *QuotesStorage) GetRandomQuote() string {
+	// Get all keys
+	keys := make([]string, 0)
+	for i := 0; ; i++ {
+		key := string(rune(i))
+		if _, ok := s.storage.Get(key); !ok {
+			break
+		}
+		keys = append(keys, key)
+	}
 
-	if len(s.quotes) == 0 {
+	if len(keys) == 0 {
 		return ""
 	}
 
+	// Get random quote
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return s.quotes[r.Intn(len(s.quotes))]
+	randomKey := keys[r.Intn(len(keys))]
+	quote, _ := s.storage.Get(randomKey)
+	return quote.(string)
 }
