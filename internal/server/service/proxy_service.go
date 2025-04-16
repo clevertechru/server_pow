@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -38,7 +39,11 @@ func (s *ProxyService) ForwardRequest(ctx context.Context, r *http.Request) ([]b
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Error closing response body: %v", err)
+		}
+	}()
 
 	return io.ReadAll(resp.Body)
 }

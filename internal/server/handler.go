@@ -1,9 +1,9 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -18,33 +18,71 @@ import (
 )
 
 type Handler struct {
-	config       *config.ServerSettings
+	config       *config.ServerConfig
 	rateLimiter  *ratelimit.Limiter
 	connLimiter  *connlimit.Limiter
 	workerPool   *workerpool.Pool
 	backoffQueue *backoff.Queue
 	powService   *service.PoWService
 	quoteService *service.QuoteService
+	proxyService *service.ProxyService
 	connManager  *service.ConnectionManager
 }
 
-func NewHandler(config *config.ServerSettings) (*Handler, error) {
-	powService, err := service.NewPoWService(config.ChallengeDifficulty, 5*time.Minute)
+func NewHandler(config *config.ServerConfig) (*Handler, error) {
+	powService, err := service.NewPoWService(config.Server.ChallengeDifficulty, 5*time.Minute)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create PoW service: %w", err)
+		return nil, err
+	}
+
+	readTimeout, err := time.ParseDuration(config.Server.Connection.ReadTimeout)
+	if err != nil {
+		return nil, err
+	}
+
+	writeTimeout, err := time.ParseDuration(config.Server.Connection.WriteTimeout)
+	if err != nil {
+		return nil, err
+	}
+
+	baseBackoff, err := time.ParseDuration(config.Server.Connection.BaseBackoff)
+	if err != nil {
+		return nil, err
+	}
+
+	maxBackoff, err := time.ParseDuration(config.Server.Connection.MaxBackoff)
+	if err != nil {
+		return nil, err
+	}
+
+	rateLimiter := ratelimit.NewLimiter(config.Server.Connection.RateLimit, config.Server.Connection.BurstLimit)
+	connLimiter := connlimit.NewLimiter(config.Server.Connection.MaxConnections)
+
+	var quoteService *service.QuoteService
+	var proxyService *service.ProxyService
+
+	if config.Server.Mode == "quotes" {
+		quoteService = service.NewQuoteService()
+	} else {
+		proxyTimeout, err := time.ParseDuration(config.Server.Proxy.Timeout)
+		if err != nil {
+			return nil, err
+		}
+		proxyService = service.NewProxyService(config.Server.Proxy.Target, proxyTimeout)
 	}
 
 	h := &Handler{
 		config:       config,
-		rateLimiter:  ratelimit.NewLimiter(float64(config.RateLimit), int64(config.BurstLimit)),
-		connLimiter:  connlimit.NewLimiter(config.MaxConnections),
-		backoffQueue: backoff.NewQueue(config.QueueSize, config.BaseBackoff, config.MaxBackoff),
+		rateLimiter:  rateLimiter,
+		connLimiter:  connLimiter,
+		backoffQueue: backoff.NewQueue(config.Server.Connection.QueueSize, baseBackoff, maxBackoff),
 		powService:   powService,
-		quoteService: service.NewQuoteService(),
-		connManager:  service.NewConnectionManager(config.ReadTimeout, config.WriteTimeout),
+		quoteService: quoteService,
+		proxyService: proxyService,
+		connManager:  service.NewConnectionManager(readTimeout, writeTimeout),
 	}
 
-	h.workerPool = workerpool.NewPool(config.WorkerPoolSize, h.handleConnection)
+	h.workerPool = workerpool.NewPool(config.Server.Connection.WorkerPoolSize, h.handleConnection)
 
 	// Start queue processor
 	go h.processQueue()
@@ -177,5 +215,25 @@ func (h *Handler) handleConnection(conn net.Conn) {
 	}
 	if err := conn.Close(); err != nil {
 		log.Printf("Error closing connection: %v", err)
+	}
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.config.Server.Mode == "quotes" {
+		quote := h.quoteService.GetRandomQuote()
+		if _, err := w.Write([]byte(quote)); err != nil {
+			http.Error(w, "Failed to write response", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Proxy mode
+	resp, err := h.proxyService.ForwardRequest(r.Context(), r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := w.Write(resp); err != nil {
+		http.Error(w, "Failed to write response", http.StatusInternalServerError)
 	}
 }

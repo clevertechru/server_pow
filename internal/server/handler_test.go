@@ -91,13 +91,18 @@ func TestHandleConnection(t *testing.T) {
 	// Initialize quotes storage
 	require.NoError(t, quotes.Init(configPath), "Failed to initialize quotes storage")
 
-	cfg := &config.ServerSettings{
-		ChallengeDifficulty: 2, // 2 bytes = 16 leading zeros
-		RateLimit:           1000,
-		BurstLimit:          1000,
-		MaxConnections:      1000,
-		WorkerPoolSize:      10,
-	}
+	cfg := &config.ServerConfig{}
+	cfg.Server.Mode = "quotes"
+	cfg.Server.Quotes.File = "test_quotes.yml"
+	cfg.Server.Connection.ReadTimeout = "30s"
+	cfg.Server.Connection.WriteTimeout = "30s"
+	cfg.Server.Connection.RateLimit = 10
+	cfg.Server.Connection.BurstLimit = 20
+	cfg.Server.Connection.MaxConnections = 100
+	cfg.Server.Connection.WorkerPoolSize = 10
+	cfg.Server.Connection.QueueSize = 50
+	cfg.Server.Connection.BaseBackoff = "100ms"
+	cfg.Server.Connection.MaxBackoff = "5s"
 	handler, err := NewHandler(cfg)
 	require.NoError(t, err, "Failed to create handler")
 

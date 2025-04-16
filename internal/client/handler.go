@@ -35,7 +35,7 @@ func NewHandler(config *config.ClientConfig) *Handler {
 }
 
 func (h *Handler) MakeRequest() error {
-	addr := net.JoinHostPort(h.config.ServerHost, h.config.ServerPort)
+	addr := net.JoinHostPort(h.config.Client.ServerHost, h.config.Client.ServerPort)
 	conn, err := h.dialer.Dial("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %v", err)
@@ -46,10 +46,19 @@ func (h *Handler) MakeRequest() error {
 		}
 	}()
 
-	if err := conn.SetReadDeadline(time.Now().Add(h.config.ReadTimeout)); err != nil {
+	readTimeout, err := h.config.GetReadTimeout()
+	if err != nil {
+		return fmt.Errorf("invalid read timeout: %v", err)
+	}
+	writeTimeout, err := h.config.GetWriteTimeout()
+	if err != nil {
+		return fmt.Errorf("invalid write timeout: %v", err)
+	}
+
+	if err := conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
 		return fmt.Errorf("failed to set read deadline: %v", err)
 	}
-	if err := conn.SetWriteDeadline(time.Now().Add(h.config.WriteTimeout)); err != nil {
+	if err := conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
 		return fmt.Errorf("failed to set write deadline: %v", err)
 	}
 
@@ -65,14 +74,14 @@ func (h *Handler) MakeRequest() error {
 		return fmt.Errorf("failed to solve PoW: %v", err)
 	}
 
-	if err := conn.SetWriteDeadline(time.Now().Add(h.config.WriteTimeout)); err != nil {
+	if err := conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
 		return fmt.Errorf("failed to set write deadline: %v", err)
 	}
 	if _, err := fmt.Fprintf(conn, "%d\n", nonce); err != nil {
 		return fmt.Errorf("failed to write nonce: %v", err)
 	}
 
-	if err := conn.SetReadDeadline(time.Now().Add(h.config.ReadTimeout)); err != nil {
+	if err := conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
 		return fmt.Errorf("failed to set read deadline: %v", err)
 	}
 	quote, err := reader.ReadString('\n')

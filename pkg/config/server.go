@@ -1,69 +1,61 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-type ServerSettings struct {
-	Host                string        // Host to bind to
-	Port                string        // Port to listen on
-	ChallengeDifficulty int           // Difficulty target for PoW
-	ReadTimeout         time.Duration // Read timeout for connections
-	WriteTimeout        time.Duration // Write timeout for connections
-	RateLimit           int           // Rate limit in requests per second
-	BurstLimit          int           // Burst capacity for rate limiter
-	MaxConnections      int           // Maximum number of concurrent connections
-	WorkerPoolSize      int           // Size of the worker pool
-	QueueSize           int           // Size of the connection queue
-	BaseBackoff         time.Duration // Base backoff duration
-	MaxBackoff          time.Duration // Maximum backoff duration
-}
-
 type ServerConfig struct {
 	Server struct {
-		Mode  string `yaml:"mode"`
-		Proxy struct {
-			Target  string `yaml:"target"`
-			Timeout string `yaml:"timeout"`
+		Host                string `yaml:"host"`                 // Host to bind to
+		Port                string `yaml:"port"`                 // Port to listen on
+		Mode                string `yaml:"mode"`                 // Server mode quotes or proxy
+		ChallengeDifficulty int    `yaml:"challenge_difficulty"` // Difficulty target for PoW
+		Proxy               struct {
+			Target  string `yaml:"target"`  // Target URL for proxy
+			Timeout string `yaml:"timeout"` // Timeout for proxy
 		} `yaml:"proxy"`
 		Quotes struct {
-			File string `yaml:"file"`
+			File string `yaml:"file"` // File path for quotes.yml
 		} `yaml:"quotes"`
+		Connection struct {
+			ReadTimeout    string `yaml:"read_timeout"`     // Read timeout for connections
+			WriteTimeout   string `yaml:"write_timeout"`    // Write timeout for connections
+			RateLimit      int    `yaml:"rate_limit"`       // Rate limit in requests per second
+			BurstLimit     int    `yaml:"burst_limit"`      // Burst capacity for rate limiter
+			MaxConnections int    `yaml:"max_connections"`  // Maximum number of concurrent connections
+			WorkerPoolSize int    `yaml:"worker_pool_size"` // Size of the worker pool
+			QueueSize      int    `yaml:"queue_size"`       // Size of the connection queue
+			BaseBackoff    string `yaml:"base_backoff"`     // Base backoff duration
+			MaxBackoff     string `yaml:"max_backoff"`      // Maximum backoff duration
+		} `yaml:"connection"`
 	} `yaml:"server"`
 }
 
-func NewServerSettings() *ServerSettings {
-	return &ServerSettings{
-		Host:                getEnvOrDefault("HOST", "0.0.0.0"),
-		Port:                getEnvOrDefault("PORT", "8080"),
-		ChallengeDifficulty: getIntEnvOrDefault("CHALLENGE_DIFFICULTY", 2),
-		ReadTimeout:         getDurationEnvOrDefault("READ_TIMEOUT_MS", 30_000*time.Millisecond),
-		WriteTimeout:        getDurationEnvOrDefault("WRITE_TIMEOUT_MS", 30_000*time.Millisecond),
-		RateLimit:           getIntEnvOrDefault("RATE_LIMIT_RPS", 10),
-		BurstLimit:          getIntEnvOrDefault("BURST_CAPACITY", 20),
-		MaxConnections:      getIntEnvOrDefault("MAX_ACTIVE_CONNECTIONS", 100),
-		WorkerPoolSize:      getIntEnvOrDefault("WORKER_POOL_SIZE", 10),
-		QueueSize:           getIntEnvOrDefault("QUEUE_SIZE", 50),
-		BaseBackoff:         getDurationEnvOrDefault("BASE_BACKOFF_MS", 100*time.Millisecond),
-		MaxBackoff:          getDurationEnvOrDefault("MAX_BACKOFF_MS", 5000*time.Millisecond),
-	}
-}
-
-func LoadConfig(path string) (*ServerConfig, error) {
-	data, err := os.ReadFile(path)
+func LoadServerConfig(configPath string) (*ServerConfig, error) {
+	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	var config ServerConfig
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, err
+	// Replace environment variables
+	re := regexp.MustCompile(`\${([^}]+)}`)
+	configStr := re.ReplaceAllStringFunc(string(data), func(match string) string {
+		envVar := strings.Trim(match, "${}")
+		return os.Getenv(envVar)
+	})
+
+	var cfg ServerConfig
+	if err := yaml.Unmarshal([]byte(configStr), &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	return &config, nil
+	return &cfg, nil
 }
 
 func (c *ServerConfig) GetProxyTimeout() (time.Duration, error) {
@@ -71,11 +63,20 @@ func (c *ServerConfig) GetProxyTimeout() (time.Duration, error) {
 }
 
 // DefaultConfig returns a default server configuration
-func DefaultConfig() *ServerConfig {
+func DefaultServerConfig() *ServerConfig {
 	cfg := &ServerConfig{}
 	cfg.Server.Mode = "quotes"
 	cfg.Server.Proxy.Target = "http://example.com"
 	cfg.Server.Proxy.Timeout = "5s"
 	cfg.Server.Quotes.File = "quotes.yml"
+	cfg.Server.Connection.ReadTimeout = "30s"
+	cfg.Server.Connection.WriteTimeout = "30s"
+	cfg.Server.Connection.RateLimit = 10
+	cfg.Server.Connection.BurstLimit = 20
+	cfg.Server.Connection.MaxConnections = 100
+	cfg.Server.Connection.WorkerPoolSize = 10
+	cfg.Server.Connection.QueueSize = 50
+	cfg.Server.Connection.BaseBackoff = "100ms"
+	cfg.Server.Connection.MaxBackoff = "5s"
 	return cfg
 }

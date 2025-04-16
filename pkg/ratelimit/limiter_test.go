@@ -11,29 +11,29 @@ import (
 func TestLimiter_Allow(t *testing.T) {
 	tests := []struct {
 		name     string
-		rate     float64
-		capacity int64
+		rate     int
+		capacity int
 		requests int
 		wait     time.Duration
 		want     bool
 	}{
 		{
 			name:     "single request allowed",
-			rate:     1.0,
+			rate:     1,
 			capacity: 1,
 			requests: 1,
 			want:     true,
 		},
 		{
 			name:     "burst allowed",
-			rate:     1.0,
+			rate:     1,
 			capacity: 5,
 			requests: 5,
 			want:     true,
 		},
 		{
 			name:     "exceed burst",
-			rate:     1.0,
+			rate:     1,
 			capacity: 5,
 			requests: 6,
 			want:     false,

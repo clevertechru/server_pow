@@ -51,10 +51,12 @@ func (d *mockDialer) Dial(network, address string) (net.Conn, error) {
 }
 
 func TestMakeRequest(t *testing.T) {
-	cfg := &config.ClientConfig{
-		ServerHost: "localhost",
-		ServerPort: "8080",
-	}
+	cfg := &config.ClientConfig{}
+	cfg.Client.ServerHost = "localhost"
+	cfg.Client.ServerPort = "8080"
+	cfg.Client.RequestsPerSecond = 10
+	cfg.Client.Connection.ReadTimeout = "30s"
+	cfg.Client.Connection.WriteTimeout = "30s"
 	handler := NewHandler(cfg)
 
 	conn := &mockConn{Buffer: &bytes.Buffer{}}
