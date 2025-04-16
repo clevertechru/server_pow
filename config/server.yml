@@ -1,0 +1,7 @@
+server:
+  mode: "quotes" # or "proxy"
+  proxy:
+    target: "http://example.com" # target URL for proxy mode
+    timeout: "5s" # proxy timeout
+  quotes:
+    file: "quotes.yml" # quotes file path 
