@@ -1,6 +1,6 @@
 package quotes
 
-var storage *Storage
+var storage *QuotesStorage
 
 func Init(configPath string) error {
 	var err error
