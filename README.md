@@ -119,6 +119,6 @@ quotes:
 ```
 
 # Development
-* Go 1.22 or later required
+* Go 1.24 or later required
 * Docker and Docker Compose for containerized deployment
 * golangci-lint for code quality checks
