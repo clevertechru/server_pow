@@ -26,7 +26,7 @@ func NewPool(workers int, handler func(net.Conn)) *Pool {
 
 	p := &Pool{
 		workers: workers,
-		tasks:   make(chan net.Conn, workers*2), // buffer size = 2x workers
+		tasks:   make(chan net.Conn, workers), // buffer size = workers
 		handler: handler,
 	}
 
@@ -45,15 +45,16 @@ func (p *Pool) start() {
 }
 
 func (p *Pool) worker() {
-	defer p.wg.Done()
 	atomic.AddInt32(&p.activeWorkers, 1)
-	defer atomic.AddInt32(&p.activeWorkers, -1)
+	defer func() {
+		atomic.AddInt32(&p.activeWorkers, -1)
+		p.wg.Done()
+	}()
 
 	for conn := range p.tasks {
-		if conn == nil {
-			return
+		if conn != nil {
+			p.handler(conn)
 		}
-		p.handler(conn)
 	}
 }
 
@@ -65,6 +66,7 @@ func (p *Pool) Submit(conn net.Conn) bool {
 	}
 	p.mu.RUnlock()
 
+	// Try to submit without blocking
 	select {
 	case p.tasks <- conn:
 		// Update queue size metric
@@ -78,8 +80,10 @@ func (p *Pool) Submit(conn net.Conn) bool {
 
 func (p *Pool) Shutdown() {
 	p.mu.Lock()
-	p.isShutdown = true
-	close(p.tasks)
+	if !p.isShutdown {
+		p.isShutdown = true
+		close(p.tasks)
+	}
 	p.mu.Unlock()
 
 	p.wg.Wait()
