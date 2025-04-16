@@ -163,6 +163,9 @@ func (h *Handler) handleConnection(conn net.Conn) {
 		if err := h.connManager.Write(conn, "Invalid proof of work"); err != nil {
 			log.Printf("Error sending invalid PoW response: %v", err)
 		}
+		if err := conn.Close(); err != nil {
+			log.Printf("Error closing connection: %v", err)
+		}
 		return
 	}
 
@@ -171,5 +174,8 @@ func (h *Handler) handleConnection(conn net.Conn) {
 	if err := h.connManager.Write(conn, quote); err != nil {
 		log.Printf("Error sending quote: %v", err)
 		return
+	}
+	if err := conn.Close(); err != nil {
+		log.Printf("Error closing connection: %v", err)
 	}
 }
