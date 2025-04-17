@@ -13,7 +13,8 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /app/server .
-COPY config/quotes.yml ./config/
+COPY config/quotes.yml ./config/quotes.yml
+COPY config/server.yml ./config/server.yml
 
 EXPOSE 8080
 

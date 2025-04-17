@@ -52,8 +52,18 @@ func (d *mockDialer) Dial(network, address string) (net.Conn, error) {
 
 func TestMakeRequest(t *testing.T) {
 	cfg := &config.ClientConfig{
-		ServerHost: "localhost",
-		ServerPort: "8080",
+		Client: struct {
+			ServerHost   string `yaml:"server_host"`
+			ServerPort   string `yaml:"server_port"`
+			RequestDelay string `yaml:"request_delay"`
+			Connection   struct {
+				ReadTimeout  string `yaml:"read_timeout"`
+				WriteTimeout string `yaml:"write_timeout"`
+			} `yaml:"connection"`
+		}{
+			ServerHost: "localhost",
+			ServerPort: "8080",
+		},
 	}
 	handler := NewHandler(cfg)
 

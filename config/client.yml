@@ -1,0 +1,7 @@
+client:
+  server_host: "${SERVER_HOST}"
+  server_port: "${SERVER_PORT}"
+  request_delay: "${REQUEST_DELAY}"
+  connection:
+    read_timeout: "30s"
+    write_timeout: "30s"
