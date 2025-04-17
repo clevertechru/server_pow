@@ -24,6 +24,11 @@ func main() {
 		if err := handler.MakeRequest(); err != nil {
 			log.Printf("Error: %v", err)
 		}
-		time.Sleep(time.Duration(cfg.Client.RequestsPerSecond))
+		delay, err := time.ParseDuration(cfg.Client.RequestDelay)
+		if err != nil {
+			log.Printf("Error parsing delay: %v", err)
+			delay = 100 * time.Millisecond
+		}
+		time.Sleep(delay)
 	}
 }

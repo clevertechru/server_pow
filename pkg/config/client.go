@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,13 +12,13 @@ import (
 
 type ClientConfig struct {
 	Client struct {
-		ServerHost        string `yaml:"server_host"` // Server host to connect to
-		ServerPort        string `yaml:"server_port"` // Server port to connect to
-		RequestsPerSecond int    `yaml:"rps"`         // Requests per second
-		Connection        struct {
+		ServerHost   string `yaml:"server_host"`   // Server host to connect to
+		ServerPort   string `yaml:"server_port"`   // Server port to connect to
+		RequestDelay string `yaml:"request_delay"` // Requests delay
+		Connection   struct {
 			ReadTimeout  string `yaml:"read_timeout"`  // Read timeout for connections
 			WriteTimeout string `yaml:"write_timeout"` // Write timeout for connections
-		} `yaml:"request"`
+		} `yaml:"connection"`
 	} `yaml:"client"`
 }
 
@@ -49,7 +48,7 @@ func DefaultClientConfig() *ClientConfig {
 	cfg := &ClientConfig{}
 	cfg.Client.ServerHost = "localhost"
 	cfg.Client.ServerPort = "8080"
-	cfg.Client.RequestsPerSecond = 10
+	cfg.Client.RequestDelay = "100ms"
 	cfg.Client.Connection.ReadTimeout = "30s"
 	cfg.Client.Connection.WriteTimeout = "30s"
 	return cfg
@@ -63,6 +62,6 @@ func (c *ClientConfig) GetWriteTimeout() (time.Duration, error) {
 	return time.ParseDuration(c.Client.Connection.WriteTimeout)
 }
 
-func (c *ClientConfig) GetRequestsPerSecond() (time.Duration, error) {
-	return time.ParseDuration(strconv.Itoa(c.Client.RequestsPerSecond))
+func (c *ClientConfig) GetRequestDelay() (time.Duration, error) {
+	return time.ParseDuration(c.Client.RequestDelay)
 }

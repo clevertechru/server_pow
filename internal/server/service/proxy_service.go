@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -44,6 +45,10 @@ func (s *ProxyService) ForwardRequest(ctx context.Context, r *http.Request) ([]b
 			log.Printf("Error closing response body: %v", err)
 		}
 	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("proxy request failed with status %d", resp.StatusCode)
+	}
 
 	return io.ReadAll(resp.Body)
 }

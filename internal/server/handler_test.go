@@ -103,6 +103,7 @@ func TestHandleConnection(t *testing.T) {
 	cfg.Server.Connection.QueueSize = 50
 	cfg.Server.Connection.BaseBackoff = "100ms"
 	cfg.Server.Connection.MaxBackoff = "5s"
+	cfg.Server.ChallengeDifficulty = 1 // Set a small difficulty for tests
 	handler, err := NewHandler(cfg)
 	require.NoError(t, err, "Failed to create handler")
 
@@ -158,6 +159,7 @@ func TestHandleConnection(t *testing.T) {
 	parts = strings.Split(challengeStr, "|")
 	require.Len(t, parts, 3, "Invalid challenge format")
 
+	// Solve the PoW challenge
 	nonce, err := pow.SolvePoW(challengeStr)
 	require.NoError(t, err, "Failed to solve PoW")
 
@@ -172,11 +174,9 @@ func TestHandleConnection(t *testing.T) {
 	// Wait for the nonce to be processed
 	time.Sleep(100 * time.Millisecond)
 
-	quote, err := conn.writeBuf.ReadString('\n')
-	require.NoError(t, err, "Failed to read quote")
-	quote = strings.TrimSpace(quote)
-
-	assert.NotEmpty(t, quote, "Expected non-empty quote")
-	assert.NotEqual(t, "Invalid proof of work", quote, "Got invalid proof of work response")
-	assert.True(t, conn.closed, "Expected connection to be closed")
+	response, err = conn.writeBuf.ReadString('\n')
+	require.NoError(t, err, "Failed to read response")
+	response = strings.TrimSpace(response)
+	assert.Contains(t, quotesList, response, "Expected a valid quote")
+	assert.True(t, conn.closed, "Expected connection to be closed after valid PoW")
 }

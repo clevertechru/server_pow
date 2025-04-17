@@ -1,7 +1,7 @@
 client:
-  server_host: "0.0.0.0"  # host to bind to
-  server_port: "8080"     # port to listen on
-  rps: 10                 # requests per second
+  server_host: "${SERVER_HOST}"  # host to bind to
+  server_port: "${SERVER_PORT}"     # port to listen on
+  request_delay: "${REQUEST_DELAY}" # requests delay
   connection:
     read_timeout: "30s"   # read timeout
     write_timeout: "30s"  # write timeout

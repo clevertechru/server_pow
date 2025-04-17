@@ -54,7 +54,7 @@ func TestMakeRequest(t *testing.T) {
 	cfg := &config.ClientConfig{}
 	cfg.Client.ServerHost = "localhost"
 	cfg.Client.ServerPort = "8080"
-	cfg.Client.RequestsPerSecond = 10
+	cfg.Client.RequestDelay = "10ms"
 	cfg.Client.Connection.ReadTimeout = "30s"
 	cfg.Client.Connection.WriteTimeout = "30s"
 	handler := NewHandler(cfg)

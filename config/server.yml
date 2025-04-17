@@ -1,7 +1,7 @@
 server:
-  host: "0.0.0.0" # host to bind to
-  port: "8080" # port to listen on
-  challenge_difficulty: 2 # difficulty target for PoW
+  host: ${HOST} # host to bind to
+  port: ${PORT} # port to listen on
+  challenge_difficulty: ${CHALLENGE_DIFFICULTY} # difficulty target for PoW
   mode: "quotes" # or "proxy"
   proxy:
     target: "http://example.com" # target URL for proxy mode

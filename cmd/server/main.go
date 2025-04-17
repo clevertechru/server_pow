@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"log"
-	"net/http"
+	"net"
 
 	"github.com/clevertechru/server_pow/internal/server"
 	"github.com/clevertechru/server_pow/pkg/config"
+	"github.com/clevertechru/server_pow/pkg/quotes"
 )
 
 func main() {
@@ -19,18 +20,30 @@ func main() {
 		cfg = config.DefaultServerConfig()
 	}
 
+	// Initialize quotes storage
+	if err := quotes.Init(cfg.Server.Quotes.File); err != nil {
+		log.Fatalf("Failed to initialize quotes: %v", err)
+	}
+
 	handler, err := server.NewHandler(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create handler: %v", err)
 	}
 
-	server := &http.Server{
-		Addr:    cfg.Server.Host + ":" + cfg.Server.Port,
-		Handler: handler,
+	listener, err := net.Listen("tcp", cfg.Server.Host+":"+cfg.Server.Port)
+	if err != nil {
+		log.Fatalf("Failed to start listener: %v", err)
 	}
+	defer listener.Close()
 
 	log.Printf("Starting server on %s:%s", cfg.Server.Host, cfg.Server.Port)
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Printf("Failed to accept connection: %v", err)
+			continue
+		}
+		go handler.ProcessConnection(conn)
 	}
 }

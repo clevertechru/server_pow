@@ -14,6 +14,7 @@ WORKDIR /app
 
 COPY --from=builder /app/server .
 COPY config/quotes.yml ./config/
+COPY config/server.yml ./config/
 
 EXPOSE 8080
 
