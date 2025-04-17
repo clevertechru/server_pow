@@ -2,9 +2,9 @@ server:
   host: ${HOST} # host to bind to
   port: ${PORT} # port to listen on
   challenge_difficulty: ${CHALLENGE_DIFFICULTY} # difficulty target for PoW
-  mode: "quotes" # or "proxy"
+  mode: ${SERVER_MODE} # "quotes" or "proxy"
   proxy:
-    target: "http://example.com" # target URL for proxy mode
+    target: ${PROXY_TARGET} # target URL for proxy mode
     timeout: "5s" # proxy timeout
   quotes:
     file: "config/quotes.yml" # quotes file path

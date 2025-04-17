@@ -9,6 +9,8 @@ services:
       - HOST=0.0.0.0
       - PORT=8080
       - CHALLENGE_DIFFICULTY=2
+      - SERVER_MODE=quotes
+      - PROXY_TARGET=http://example.com
     networks:
       - pow-network
 
