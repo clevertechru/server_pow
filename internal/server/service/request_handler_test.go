@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/clevertechru/server_pow/internal/server/config"
+	"github.com/clevertechru/server_pow/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +29,9 @@ func TestRequestHandler_HandleRequest_QuotesMode(t *testing.T) {
 func TestRequestHandler_HandleRequest_ProxyMode(t *testing.T) {
 	// Create a test server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("proxy response"))
+		if _, err := w.Write([]byte("proxy response")); err != nil {
+			t.Errorf("Error writing test response: %v", err)
+		}
 	}))
 	defer ts.Close()
 

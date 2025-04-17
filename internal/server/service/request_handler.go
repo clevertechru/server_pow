@@ -1,9 +1,10 @@
 package service
 
 import (
+	"log"
 	"net/http"
 
-	"github.com/clevertechru/server_pow/internal/server/config"
+	"github.com/clevertechru/server_pow/pkg/config"
 )
 
 type RequestHandler struct {
@@ -33,7 +34,9 @@ func NewRequestHandler(cfg *config.ServerConfig) (*RequestHandler, error) {
 func (h *RequestHandler) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	if h.cfg.Server.Mode == "quotes" {
 		quote := h.quoteService.GetRandomQuote()
-		w.Write([]byte(quote))
+		if _, err := w.Write([]byte(quote)); err != nil {
+			log.Printf("Error writing quote response: %v", err)
+		}
 		return
 	}
 
@@ -43,5 +46,7 @@ func (h *RequestHandler) HandleRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write(resp)
+	if _, err := w.Write(resp); err != nil {
+		log.Printf("Error writing proxy response: %v", err)
+	}
 }

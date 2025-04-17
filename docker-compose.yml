@@ -21,7 +21,7 @@ services:
     environment:
       - SERVER_HOST=server
       - SERVER_PORT=8080
-      - REQUESTS_DELAY_MS=100
+      - REQUEST_DELAY=100ms
     networks:
       - pow-network
 
