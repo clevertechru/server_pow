@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"net"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/clevertechru/server_pow/internal/server"
@@ -15,11 +15,17 @@ import (
 )
 
 func main() {
-	cfg := config.NewServerSettings()
+	serverConfigPath := flag.String("config", "config/server.yml", "path to config file")
+	flag.Parse()
 
-	// Initialize quotes storage
-	configPath := filepath.Join("config", "quotes.yml")
-	if err := quotes.Init(configPath); err != nil {
+	cfg, err := config.LoadServerConfig(*serverConfigPath)
+	if err != nil {
+		log.Printf("Failed to load config: %v", err)
+		cfg = config.DefaultServerConfig()
+	}
+
+	// Initialize quotes storage)
+	if err := quotes.Init(cfg.Server.Quotes.File); err != nil {
 		log.Fatalf("Failed to initialize quotes storage: %v", err)
 	}
 
@@ -28,7 +34,7 @@ func main() {
 		log.Fatalf("Failed to create handler: %v", err)
 	}
 
-	addr := net.JoinHostPort(cfg.Host, cfg.Port)
+	addr := net.JoinHostPort(cfg.Server.Host, cfg.Server.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
