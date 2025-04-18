@@ -16,7 +16,12 @@ type ServerConfig struct {
 		Port                string `yaml:"port"`
 		Mode                string `yaml:"mode"`                 // Server mode quotes or proxy
 		ChallengeDifficulty int    `yaml:"challenge_difficulty"` // Difficulty target for PoW
-		Proxy               struct {
+		Protocol            string `yaml:"protocol"`             // Server protocol (http or https)
+		TLS                 struct {
+			CertFile string `yaml:"cert_file"` // Path to TLS certificate file
+			KeyFile  string `yaml:"key_file"`  // Path to TLS private key file
+		} `yaml:"tls"`
+		Proxy struct {
 			Target  string `yaml:"target"`  // Target URL for proxy
 			Timeout string `yaml:"timeout"` // Timeout for proxy
 		} `yaml:"proxy"`
@@ -66,6 +71,7 @@ func (c *ServerConfig) GetProxyTimeout() (time.Duration, error) {
 func DefaultServerConfig() *ServerConfig {
 	cfg := &ServerConfig{}
 	cfg.Server.Mode = "quotes"
+	cfg.Server.Protocol = "http"
 	cfg.Server.Proxy.Target = "http://example.com"
 	cfg.Server.Proxy.Timeout = "5s"
 	cfg.Server.Quotes.File = "quotes.yml"

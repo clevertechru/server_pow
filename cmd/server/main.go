@@ -1,13 +1,8 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"log"
-	"net"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/clevertechru/server_pow/internal/server"
 	"github.com/clevertechru/server_pow/pkg/config"
@@ -24,59 +19,27 @@ func main() {
 		cfg = config.DefaultServerConfig()
 	}
 
-	// Initialize quotes storage)
+	// Initialize quotes storage
 	if err := quotes.Init(cfg.Server.Quotes.File); err != nil {
 		log.Fatalf("Failed to initialize quotes storage: %v", err)
 	}
 
-	handler, err := server.NewHandler(cfg)
+	httpServer, err := server.NewHTTPServer(cfg)
 	if err != nil {
-		log.Fatalf("Failed to create handler: %v", err)
+		log.Fatalf("Failed to create HTTP server: %v", err)
 	}
 
-	addr := net.JoinHostPort(cfg.Server.Host, cfg.Server.Port)
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Handle graceful shutdown
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
-
-		log.Println("Shutting down server...")
-		cancel()
-
-		if err := listener.Close(); err != nil {
-			log.Printf("Error closing listener: %v", err)
+	// Start server based on protocol
+	if cfg.Server.Protocol == "https" {
+		if cfg.Server.TLS.CertFile == "" || cfg.Server.TLS.KeyFile == "" {
+			log.Fatal("TLS certificate and key files are required for HTTPS")
 		}
-
-		// Shutdown worker pool
-		handler.Shutdown()
-	}()
-
-	log.Printf("Server started on %s", addr)
-
-	// Accept connections until context is canceled
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			conn, err := listener.Accept()
-			if err != nil {
-				if ctx.Err() != nil {
-					return
-				}
-				log.Printf("Failed to accept connection: %v", err)
-				continue
-			}
-			handler.ProcessConnection(conn)
+		if err := httpServer.StartTLS(cfg.Server.TLS.CertFile, cfg.Server.TLS.KeyFile); err != nil {
+			log.Fatalf("Failed to start HTTPS server: %v", err)
+		}
+	} else {
+		if err := httpServer.Start(); err != nil {
+			log.Fatalf("Failed to start HTTP server: %v", err)
 		}
 	}
 }

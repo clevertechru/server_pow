@@ -16,7 +16,11 @@ type ClientConfig struct {
 		ServerHost   string `yaml:"server_host"`   // Server host to connect to
 		ServerPort   string `yaml:"server_port"`   // Server port to connect to
 		RequestDelay string `yaml:"request_delay"` // Requests delay
-		Connection   struct {
+		Protocol     string `yaml:"protocol"`      // Server protocol (http or https)
+		TLS          struct {
+			InsecureSkipVerify bool `yaml:"insecure_skip_verify"` // Skip TLS certificate verification
+		} `yaml:"tls"`
+		Connection struct {
 			ReadTimeout  string `yaml:"read_timeout"`  // Read timeout for connections
 			WriteTimeout string `yaml:"write_timeout"` // Write timeout for connections
 		} `yaml:"connection"`
@@ -50,6 +54,7 @@ func DefaultClientConfig() *ClientConfig {
 	cfg.Client.ServerHost = "localhost"
 	cfg.Client.ServerPort = "8080"
 	cfg.Client.RequestDelay = "100ms"
+	cfg.Client.Protocol = "http"
 	cfg.Client.Connection.ReadTimeout = "30s"
 	cfg.Client.Connection.WriteTimeout = "30s"
 	return cfg
