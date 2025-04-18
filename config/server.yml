@@ -3,6 +3,10 @@ server:
   port: ${PORT} # port to listen on
   challenge_difficulty: ${CHALLENGE_DIFFICULTY} # difficulty target for PoW
   mode: ${SERVER_MODE} # "quotes" or "proxy"
+  protocol: ${SERVER_PROTOCOL} # "http" or "https"
+  tls:
+    cert_file: ${TLS_CERT_FILE} # path to TLS certificate file
+    key_file: ${TLS_KEY_FILE} # path to TLS private key file
   proxy:
     target: ${PROXY_TARGET} # target URL for proxy mode
     timeout: "5s" # proxy timeout

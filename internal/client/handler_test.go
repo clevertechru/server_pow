@@ -56,13 +56,26 @@ func TestMakeRequest(t *testing.T) {
 			ServerHost   string `yaml:"server_host"`
 			ServerPort   string `yaml:"server_port"`
 			RequestDelay string `yaml:"request_delay"`
-			Connection   struct {
+			Protocol     string `yaml:"protocol"`
+			TLS          struct {
+				InsecureSkipVerify bool `yaml:"insecure_skip_verify"`
+			} `yaml:"tls"`
+			Connection struct {
 				ReadTimeout  string `yaml:"read_timeout"`
 				WriteTimeout string `yaml:"write_timeout"`
 			} `yaml:"connection"`
 		}{
-			ServerHost: "localhost",
-			ServerPort: "8080",
+			ServerHost:   "localhost",
+			ServerPort:   "8080",
+			Protocol:     "http",
+			RequestDelay: "100ms",
+			Connection: struct {
+				ReadTimeout  string `yaml:"read_timeout"`
+				WriteTimeout string `yaml:"write_timeout"`
+			}{
+				ReadTimeout:  "30s",
+				WriteTimeout: "30s",
+			},
 		},
 	}
 	handler := NewHandler(cfg)

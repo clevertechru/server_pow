@@ -97,7 +97,12 @@ func TestHandleConnection(t *testing.T) {
 			Port                string `yaml:"port"`
 			Mode                string `yaml:"mode"`
 			ChallengeDifficulty int    `yaml:"challenge_difficulty"`
-			Proxy               struct {
+			Protocol            string `yaml:"protocol"`
+			TLS                 struct {
+				CertFile string `yaml:"cert_file"`
+				KeyFile  string `yaml:"key_file"`
+			} `yaml:"tls"`
+			Proxy struct {
 				Target  string `yaml:"target"`
 				Timeout string `yaml:"timeout"`
 			} `yaml:"proxy"`
@@ -116,6 +121,10 @@ func TestHandleConnection(t *testing.T) {
 				MaxBackoff     string `yaml:"max_backoff"`
 			} `yaml:"connection"`
 		}{
+			Host:                "localhost",
+			Port:                "8080",
+			Mode:                "quotes",
+			Protocol:            "http",
 			ChallengeDifficulty: 2,
 			Connection: struct {
 				ReadTimeout    string `yaml:"read_timeout"`
@@ -153,7 +162,7 @@ func TestHandleConnection(t *testing.T) {
 	challengeStr = strings.TrimSpace(challengeStr)
 
 	parts := strings.Split(challengeStr, "|")
-	require.Len(t, parts, 3, "Invalid challenge format")
+	require.Len(t, parts, 3, "Expected 3 parts in challenge string")
 
 	// Test invalid nonce
 	buf := bytes.NewBuffer(nil)

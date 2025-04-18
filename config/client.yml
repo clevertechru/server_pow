@@ -1,7 +1,10 @@
 client:
-  server_host: "${SERVER_HOST}"
-  server_port: "${SERVER_PORT}"
-  request_delay: "${REQUEST_DELAY}"
+  server_host: ${SERVER_HOST}
+  server_port: ${SERVER_PORT}
+  request_delay: "100ms"
+  protocol: ${CLIENT_PROTOCOL}
+  tls:
+    insecure_skip_verify: ${TLS_INSECURE_SKIP_VERIFY}
   connection:
     read_timeout: "30s"
     write_timeout: "30s"
