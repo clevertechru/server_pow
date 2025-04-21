@@ -91,12 +91,49 @@ func TestHandleConnection(t *testing.T) {
 	// Initialize quotes storage
 	require.NoError(t, quotes.Init(configPath), "Failed to initialize quotes storage")
 
-	cfg := &config.ServerSettings{
-		ChallengeDifficulty: 2, // 2 bytes = 16 leading zeros
-		RateLimit:           1000,
-		BurstLimit:          1000,
-		MaxConnections:      1000,
-		WorkerPoolSize:      10,
+	cfg := &config.ServerConfig{
+		Server: struct {
+			Host                string `yaml:"host"`
+			Port                string `yaml:"port"`
+			Mode                string `yaml:"mode"`
+			ChallengeDifficulty int    `yaml:"challenge_difficulty"`
+			Proxy               struct {
+				Target  string `yaml:"target"`
+				Timeout string `yaml:"timeout"`
+			} `yaml:"proxy"`
+			Quotes struct {
+				File string `yaml:"file"`
+			} `yaml:"quotes"`
+			Connection struct {
+				ReadTimeout    string `yaml:"read_timeout"`
+				WriteTimeout   string `yaml:"write_timeout"`
+				RateLimit      int    `yaml:"rate_limit"`
+				BurstLimit     int    `yaml:"burst_limit"`
+				MaxConnections int    `yaml:"max_connections"`
+				WorkerPoolSize int    `yaml:"worker_pool_size"`
+				QueueSize      int    `yaml:"queue_size"`
+				BaseBackoff    string `yaml:"base_backoff"`
+				MaxBackoff     string `yaml:"max_backoff"`
+			} `yaml:"connection"`
+		}{
+			ChallengeDifficulty: 2,
+			Connection: struct {
+				ReadTimeout    string `yaml:"read_timeout"`
+				WriteTimeout   string `yaml:"write_timeout"`
+				RateLimit      int    `yaml:"rate_limit"`
+				BurstLimit     int    `yaml:"burst_limit"`
+				MaxConnections int    `yaml:"max_connections"`
+				WorkerPoolSize int    `yaml:"worker_pool_size"`
+				QueueSize      int    `yaml:"queue_size"`
+				BaseBackoff    string `yaml:"base_backoff"`
+				MaxBackoff     string `yaml:"max_backoff"`
+			}{
+				RateLimit:      1000,
+				BurstLimit:     1000,
+				MaxConnections: 1000,
+				WorkerPoolSize: 10,
+			},
+		},
 	}
 	handler, err := NewHandler(cfg)
 	require.NoError(t, err, "Failed to create handler")

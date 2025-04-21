@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY ./cmd/client ./cmd/client
 COPY ./internal/client ./internal/client
+COPY ./config/client.yml ./config/client.yml
 COPY ./pkg ./pkg
 COPY go.mod go.sum ./
 
