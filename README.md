@@ -1,5 +1,6 @@
 [![Go](https://github.com/clevertechru/server_pow/actions/workflows/go.yml/badge.svg)](https://github.com/clevertechru/server_pow/actions/workflows/go.yml)
-[![Build Status](https://app.travis-ci.com/clevertechru/server_pow.svg?token=bbzT95wZRUs7cXAPJccG&branch=main)](https://app.travis-ci.com/clevertechru/server_pow)
+
+[//]: # ([![Build Status]&#40;https://app.travis-ci.com/clevertechru/server_pow.svg?token=bbzT95wZRUs7cXAPJccG&branch=main&#41;]&#40;https://app.travis-ci.com/clevertechru/server_pow&#41;)
 # TCP server protected from DDOS attacks with the Proof of Work
 ## Features
 * Proof of Work challenge using random quotes
